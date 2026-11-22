@@ -8,12 +8,13 @@ import { Modal } from "@/components/Modal";
 import { Badge, EmptyState, Field, PriorityBadge, Notice } from "@/components/ui";
 import { RouteSteps } from "@/components/RouteSteps";
 import { useAction } from "@/components/useAction";
-import { fmtInstant } from "@/lib/domain/dates";
+import { fmtDay, fmtInstant } from "@/lib/domain/dates";
 import { ACTION_LABEL, type StageAction } from "@/lib/domain/routing";
 import { qcDecision } from "@/app/(app)/quality/actions";
 import type { WoRow } from "@/lib/server/woQueries";
 
-export type PendingRow = WoRow & { waitingSince: string | null };
+/** An order with pieces waiting at a quality stage (the rest of it may still be in production). */
+export type PendingRow = WoRow & { waitingSince: string | null; qcStage: string; qcWaiting: number; qcFrom: string | null; qcNext: string | null; qcStageIndex: number };
 
 export function PendingInspection({ rows, reasons, canDecide }: { rows: PendingRow[]; reasons: { id: number; code: string; name: string }[]; canDecide: boolean }) {
   const [d, setD] = useState<{ row: PendingRow; action: StageAction } | null>(null);
@@ -24,14 +25,14 @@ export function PendingInspection({ rows, reasons, canDecide }: { rows: PendingR
   const { run, pending } = useAction();
 
   function open(row: PendingRow, action: StageAction) {
-    setQi(String(row.qty));
-    setQr(action === "QC_PASS" ? "0" : String(row.qty));
+    setQi(String(row.qcWaiting));
+    setQr(action === "QC_PASS" ? "0" : String(row.qcWaiting));
     setReason("");
     setNote("");
     setD({ row, action });
   }
 
-  if (!rows.length) return <div className="card"><EmptyState icon={ClipboardCheck} title="Nothing waiting for inspection" hint="Orders show here when they reach a quality stage on their route." /></div>;
+  if (!rows.length) return <div className="card"><EmptyState icon={ClipboardCheck} title="Nothing waiting for inspection" hint="Pieces show here when they reach a quality stage on their route — part of an order can wait here while the rest is still being made." /></div>;
   const isReject = d && d.action !== "QC_PASS";
   const rejected = Number(qr) || 0;
 
@@ -39,22 +40,22 @@ export function PendingInspection({ rows, reasons, canDecide }: { rows: PendingR
     <>
       <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 480px), 1fr))" }}>
         {rows.map((r) => {
-          const prev = r.stageIndex !== null && r.stageIndex > 0 ? r.stages[r.stageIndex - 1]?.name : null;
+          const prev = r.qcFrom;
           return (
             <article key={r.id} className={`card wo-card ${r.priority === 3 ? "urgent" : r.priority === 2 ? "high" : ""}`}>
               <div className="flex items-start justify-between gap-2">
                 <div style={{ minWidth: 0 }}>
                   <Link href={`/work-orders/${r.id}`} className="wo-title">{r.fullName}</Link>
                   <div className="meta" style={{ marginTop: 4 }}>
-                    <span>Stage <b>{r.stage}</b></span>
-                    <span>Qty <b>{r.qty}</b></span>
+                    <span>Stage <b>{r.qcStage}</b></span>
+                    <span>Waiting <b>{r.qcWaiting}</b> of {r.qty} pcs</span>
                     <span>Material <b>{r.material}</b></span>
-                    <span>Waiting since <b>{fmtInstant(r.waitingSince)}</b></span>
+                    <span>Since <b>{fmtDay(r.waitingSince) || "—"}</b></span>
                   </div>
                 </div>
                 <PriorityBadge priority={r.priority} />
               </div>
-              <RouteSteps stages={r.stages} stageIndex={r.stageIndex} status={r.status} compact={r.stages.length > 6} />
+              <RouteSteps stages={r.stages} stageIndex={r.qcStageIndex} status="UNDER_INSPECTION" compact={r.stages.length > 6} />
               {canDecide && (
                 <div className="flex flex-wrap gap-2" style={{ borderTop: "1px solid var(--border)", paddingTop: 10 }}>
                   <button type="button" className="btn btn-ok btn-sm" onClick={() => open(r, "QC_PASS")}><CheckCircle2 size={14} aria-hidden /> Pass Stage</button>
@@ -72,9 +73,9 @@ export function PendingInspection({ rows, reasons, canDecide }: { rows: PendingR
           <button type="button" className={`btn ${isReject ? "btn-danger" : "btn-primary"}`} disabled={pending || (rejected > 0 && !reason)} onClick={() => run(() => qcDecision(d.row.id, d.row.version, d.action, Number(qi), rejected, reason ? Number(reason) : null, note), { onOk: () => setD(null) })}>{ACTION_LABEL[d.action]}</button>
         </>}>
           <div className="flex flex-col gap-3">
-            {d.action === "QC_PASS" && <Notice tone="ok">The order goes on to {d.row.stageIndex !== null && d.row.stages[d.row.stageIndex + 1] ? d.row.stages[d.row.stageIndex + 1]!.name : "completion — and its pieces into FG stock"}.</Notice>}
-            {d.action === "QC_REJECT_LAST" && <Notice tone="warn">The order goes back to {d.row.stageIndex ? d.row.stages[d.row.stageIndex - 1]?.name : "the previous stage"} as rework.</Notice>}
-            {d.action === "QC_REJECT_START" && <Notice tone="bad">The order goes back to {d.row.stages[0]?.name} — re-cast.</Notice>}
+            {d.action === "QC_PASS" && <Notice tone="ok">The inspected pieces go on to {d.row.qcNext ?? "completion — into FG stock"}; the rejected ones are scrapped. {d.row.qcWaiting} waiting.</Notice>}
+            {d.action === "QC_REJECT_LAST" && <Notice tone="warn">The rejected pieces go back to {d.row.qcFrom ?? "the previous stage"} as rework.</Notice>}
+            {d.action === "QC_REJECT_START" && <Notice tone="bad">The rejected pieces go back to {d.row.stages[0]?.name} — re-cast.</Notice>}
             <div className="grid grid-cols-2 gap-3">
               <Field label="Qty inspected" required><input type="number" min={1} step={1} className="input" value={qi} onChange={(e) => setQi(e.target.value)} /></Field>
               <Field label="Qty rejected" required><input type="number" min={0} step={1} className="input" value={qr} onChange={(e) => setQr(e.target.value)} /></Field>

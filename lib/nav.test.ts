@@ -17,6 +17,7 @@ describe("apps", () => {
     const links = qc.sections.flatMap((s) => s.links.map((l) => l.href));
     expect(links).toContain("/workshop/history"); // QC views the floor, cannot record
     expect(links).not.toContain("/workshop");
+    expect(links).toContain("/workshop/floor"); // QC sees the pieces waiting, records only a quality stage
     expect(qc.home).toBe(links[0]);
     const viewer = appsFor(ROLE_ACCESS.USER).find((a) => a.key === "manufacturing")!;
     expect(viewer.sections.map((s) => s.label)).toEqual(["Reporting"]); // a viewer sees the reports only
@@ -34,6 +35,9 @@ describe("apps", () => {
     expect(locate(all, "/work-orders/new")?.link.label).toBe("New Work Order");
     expect(locate(all, "/planning/weekly")?.app.key).toBe("manufacturing");
     expect(locate(all, "/planning/workshop")?.link.label).toBe("Overview");
+    expect(locate(all, "/planning/tracker")?.link.label).toBe("Plan Tracker");
+    expect(locate(all, "/workshop/floor")?.link.label).toBe("Workshop Floor");
+    expect(locate(all, "/workshop")?.link.label).toBe("Record Activity");
     expect(locate(all, "/reports", "report=scrap")?.link.label).toBe("Scrap Analysis");
     expect(locate(all, "/reports", "")?.link.label).toBe("Work Order Status");
     expect(locate(all, "/master/molds")?.app.key).toBe("manufacturing");

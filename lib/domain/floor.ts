@@ -11,6 +11,16 @@ export function canConfirmStage(access: Access, ownWorkshopId: number | null, st
   return can(access, "workshop", "E") && ownWorkshopId !== null && ownWorkshopId === stageWorkshopId;
 }
 
+/**
+ * Who may record pieces at a stage (Plan Tracker, workshop floor):
+ * a quality stage — Quality in full; any other — as the kiosk's confirm rule
+ * (Planning or Workshop Execution in full: any; enter & edit: own workshop).
+ */
+export function canRecordStage(access: Access, ownWorkshopId: number | null, stageWorkshopId: number | null, stageIsQc: boolean): boolean {
+  if (stageIsQc) return can(access, "quality", "F");
+  return canConfirmStage(access, ownWorkshopId, stageWorkshopId, false);
+}
+
 /** "14444-1", "14444 1", "WO 14444-1" or a kiosk QR address → what to look up. */
 export function parseScan(raw: string): { id: number } | { woNo: string; lineNo: number } | null {
   const s = raw.trim();

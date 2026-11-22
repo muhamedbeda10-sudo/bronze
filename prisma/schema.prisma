@@ -242,6 +242,7 @@ model RejectionReason {
 
   activities  Activity[]
   inspections Inspection[]
+  outputs     StageOutput[]
 }
 
 // ---------------------------------------------------------------- work orders
@@ -305,6 +306,7 @@ model WorkOrder {
   moves       StageMove[]
   activities  Activity[]
   inspections Inspection[]
+  outputs     StageOutput[]
   issues      IssueRequest[]
   stock       StockRow[]
 
@@ -381,10 +383,42 @@ model Activity {
   createdById       Int?
   createdByName     String
   createdAt         DateTime         @default(now())
+  /// the pieces this record moved on the order's route (none for maintenance)
+  outputs           StageOutput[]
 
   @@index([date])
   @@index([workshopId])
   @@index([workOrderId])
+}
+
+/// The pieces ledger: what each stage of an order finished, as quantities.
+/// A stage's pieces arrive when the stage before finishes them (the first
+/// stage receives the order's qty on release); waiting = arrived − good − scrap.
+/// The order's current stage and status are worked out from it (lib/domain/flow.ts).
+/// A correction is a row with negative numbers; rows are never edited.
+model StageOutput {
+  id                Int              @id @default(autoincrement())
+  workOrderId       Int
+  workOrder         WorkOrder        @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  /// WorkOrderStage.seq
+  seq               Int
+  date              DateTime         @db.Date
+  good              Int              @default(0)
+  scrap             Int              @default(0)
+  rejectionReasonId Int?
+  rejectionReason   RejectionReason? @relation(fields: [rejectionReasonId], references: [id], onDelete: SetNull)
+  /// tracker | floor | activity | kiosk | planning | qc | backfill
+  source            String
+  activityId        Int?
+  activity          Activity?        @relation(fields: [activityId], references: [id], onDelete: SetNull)
+  userId            Int?
+  userName          String
+  note              String?
+  createdAt         DateTime         @default(now())
+
+  @@index([workOrderId, seq])
+  @@index([date])
+  @@index([activityId])
 }
 
 model Inspection {

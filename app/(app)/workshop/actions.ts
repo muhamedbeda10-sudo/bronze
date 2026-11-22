@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db";
 import { actionUser } from "@/lib/server/auth";
 import { audit } from "@/lib/server/audit";
 import { dbError, fail, type ActionResult } from "@/lib/server/result";
+import { loadFlow, lockOrder, recordOutput, reverseActivityOutputs } from "@/lib/server/flow";
+import { UserError } from "@/lib/server/errors";
 import { validateActivity } from "@/lib/domain/activity";
 import { can } from "@/lib/domain/access";
 import { fmtDay } from "@/lib/domain/dates";
@@ -31,16 +33,36 @@ export async function recordActivity(raw: Record<string, unknown>): Promise<Acti
     const clash = same.find((x) => { const xs = toMin(x.startTime); const xe = xs + x.durationHrs * 60; return s < xe && xs < e; });
     if (clash) return fail(`${machine.name} already has a record from ${clash.startTime} to ${clash.endTime} on that shift.`);
   }
-  const stageName = wo && wo.stageIndex !== null ? (wo.stages[wo.stageIndex]?.name ?? null) : null;
+  const moves = a.qtyProduced > 0 || a.qtyScrap > 0;
+  if (moves && (!Number.isInteger(a.qtyProduced) || !Number.isInteger(a.qtyScrap))) return fail("Produced and scrap are whole pieces.");
+  const wantSeq = raw.stageSeq === undefined || raw.stageSeq === "" ? null : Number(raw.stageSeq);
+  let message = "Activity recorded.";
   try {
     await prisma.$transaction(async (tx) => {
+      // the pieces it made move on the order's route: at the stage of this workshop that holds them
+      let seq: number | null = null;
+      let stageName = wo && wo.stageIndex !== null ? (wo.stages[wo.stageIndex]?.name ?? null) : null;
+      if (wo && moves) {
+        await lockOrder(tx, wo.id);
+        const { flow } = await loadFlow(tx, wo.id);
+        const here = flow.filter((f) => !f.qcRequired && (f.workshopId === a.workshopId || (wantSeq !== null && f.seq === wantSeq)));
+        const st = wantSeq !== null ? here.find((f) => f.seq === wantSeq) : (here.find((f) => f.waiting > 0) ?? here[0]);
+        if (!st) throw new UserError(`${wo.woNo}-${wo.lineNo} has no stage at this workshop on its route.`);
+        seq = st.seq;
+        stageName = st.name;
+      }
       const row = await tx.activity.create({ data: { ...a, stageName, createdById: user.id, createdByName: user.name } });
+      if (wo && moves && seq !== null) {
+        const r = await recordOutput(wo.id, { seq, good: a.qtyProduced, scrap: a.qtyScrap, reasonId: a.rejectionReasonId, date: a.date, source: raw.source === "kiosk" ? "kiosk" : "activity", activityId: row.id, note: a.notes }, user, tx);
+        message = r.completed ? "Activity recorded — the order is complete." : `Activity recorded — ${a.qtyProduced} pcs passed ${stageName}.`;
+      }
       await audit(tx, user, "create", "Activity", row.id, `Recorded ${a.durationHrs} h ${wo ? `on ${wo.woNo}-${wo.lineNo}` : "maintenance/setup"}${machine ? ` (${machine.name})` : ""} on ${fmtDay(a.date)}`, null, row);
     });
   } catch (e) {
+    if (e instanceof UserError) return fail(e.message);
     return dbError(e, "record the activity");
   }
-  return { ok: true, message: "Activity recorded." };
+  return { ok: true, message };
 }
 
 export async function deleteActivity(id: number): Promise<ActionResult> {
@@ -48,10 +70,13 @@ export async function deleteActivity(id: number): Promise<ActionResult> {
   if (typeof user === "string") return fail(user);
   try {
     await prisma.$transaction(async (tx) => {
+      // the pieces it moved go back first — refused when a later stage already used them
+      await reverseActivityOutputs(tx, id, user);
       const before = await tx.activity.delete({ where: { id } });
       await audit(tx, user, "delete", "Activity", id, `Deleted the activity of ${fmtDay(before.date)} (${before.startTime}–${before.endTime})`, before, null);
     });
   } catch (e) {
+    if (e instanceof UserError) return fail(e.message);
     return dbError(e, "delete the record");
   }
   return { ok: true, message: "Deleted." };

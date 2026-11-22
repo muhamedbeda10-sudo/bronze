@@ -5,6 +5,8 @@ import type { SessionUser } from "./auth";
 import { getSettings } from "./settings";
 import { notifyRole } from "./notify";
 import { STALE } from "./result";
+import { UserError } from "./errors";
+import { loadFlow, lockOrder, syncOrder, writeOutput, type OutputSource } from "./flow";
 import { calcWeights, dimensionText, fullName } from "@/lib/domain/weight";
 import { ACTION_LABEL, stageNameAt, transition, type StageAction, type WoState } from "@/lib/domain/routing";
 import type { WoLineInput, WoInput } from "@/lib/domain/workOrder";
@@ -12,7 +14,7 @@ import type { WoStatus } from "@/lib/domain/status";
 
 type Actor = Pick<SessionUser, "id" | "name">;
 
-export class UserError extends Error {}
+export { UserError };
 
 /** The weights, name and route of one line, worked out from master data. */
 async function lineFacts(tx: Tx, woNo: string, lineNo: number, lineCount: number, l: WoLineInput, allowancePct: number, defaultDensity: number) {
@@ -123,27 +125,95 @@ export interface QcDetail {
   reasonId: number | null;
 }
 
+/** The buttons that move pieces — they write the ledger, and the order's state follows it. */
+const QTY_ACTIONS: readonly StageAction[] = ["NEXT", "PREV", "QC_PASS", "QC_REJECT_LAST", "QC_REJECT_START"];
+
+/**
+ * Next / Prev / Pass / Reject as quantities: Next finishes every piece waiting
+ * at the current stage, Prev sends them back one stage, Pass finishes the
+ * pieces waiting at the quality stage (the rejected ones as scrap), Reject
+ * sends them back to be made again.
+ */
+async function qtyAction(tx: Tx, id: number, action: StageAction, user: Actor, opts: { note?: string | null; qc?: QcDetail; source?: OutputSource }): Promise<{ completed: boolean; toStatus: WoStatus }> {
+  const loaded = await loadFlow(tx, id);
+  const { wo, flow } = loaded;
+  const before = flow.map((f) => ({ ...f }));
+  const source: OutputSource = opts.source ?? (action.startsWith("QC_") ? "qc" : "planning");
+  if (action === "NEXT" || action === "PREV") {
+    const stages = wo.stages.map((s) => ({ name: s.name, qcRequired: s.qcRequired }));
+    const t = transition({ status: wo.status as WoStatus, stageIndex: wo.stageIndex, stageState: wo.stageState as WoState["stageState"], heldFrom: wo.heldFrom as WoStatus | null }, action, stages);
+    if (!t.ok) throw new UserError(t.error);
+    const cur = flow[wo.stageIndex!]!;
+    if (cur.waiting <= 0) throw new UserError(`No pieces are waiting at ${cur.name}.`);
+    if (action === "NEXT") await writeOutput(tx, loaded, { seq: cur.seq, good: cur.waiting, scrap: 0, source, note: opts.note }, user);
+    else await writeOutput(tx, loaded, { seq: flow[wo.stageIndex! - 1]!.seq, good: -cur.waiting, scrap: 0, source, note: opts.note ?? `Sent back from ${cur.name}` }, user);
+    const r = await syncOrder(tx, id, user, before, { action, note: opts.note });
+    await audit(tx, user, "stage", "WorkOrder", id, `${wo.woNo}-${wo.lineNo}: ${ACTION_LABEL[action]} — ${cur.waiting} pcs (${cur.name} → ${r.stage ?? "—"})`, { status: wo.status, stage: cur.name }, { status: r.status, stage: r.stage });
+    return { completed: r.completed, toStatus: r.status };
+  }
+  // quality: the first quality stage holding pieces
+  if (["CANCELLED", "COMPLETED", "ON_HOLD", "WAITING_MATERIAL", "WAITING_TECH_OFFICE"].includes(wo.status)) throw new UserError(wo.status === "CANCELLED" || wo.status === "COMPLETED" ? "The order is closed." : "Resume the order first.");
+  const qi = flow.findIndex((f) => f.qcRequired && f.waiting > 0);
+  if (qi < 0) throw new UserError("No pieces of this order are waiting for inspection.");
+  const q = flow[qi]!;
+  const qc = opts.qc;
+  if (!qc) throw new UserError("Enter the inspected quantity.");
+  if (qc.qtyInspected < 1 || qc.qtyInspected > q.waiting) throw new UserError(`The inspected quantity must be between 1 and the ${q.waiting} pieces waiting.`);
+  if (qc.qtyRejected < 0 || qc.qtyRejected > qc.qtyInspected) throw new UserError("The rejected quantity must be between 0 and the inspected quantity.");
+  if (action !== "QC_PASS" && !qc.reasonId) throw new UserError("Choose the rejection reason — it feeds the scrap analysis.");
+  if (action === "QC_PASS" && qc.qtyRejected > 0 && !qc.reasonId) throw new UserError("Choose the rejection reason — it feeds the scrap analysis.");
+  let toName: string | null;
+  let r: Awaited<ReturnType<typeof syncOrder>>;
+  if (action === "QC_PASS") {
+    // what was inspected leaves the stage: passed on, the rejected pieces scrapped
+    await writeOutput(tx, loaded, { seq: q.seq, good: qc.qtyInspected - qc.qtyRejected, scrap: qc.qtyRejected, reasonId: qc.reasonId, source, note: opts.note, inspection: false }, user);
+    r = await syncOrder(tx, id, user, before, { action, note: opts.note });
+    toName = r.stage;
+  } else {
+    // the rejected pieces go back to be made again from the stage before (or the first)
+    const to = action === "QC_REJECT_START" ? 0 : Math.max(0, qi - 1);
+    for (let k = qi - 1; k >= to; k--) await writeOutput(tx, loaded, { seq: flow[k]!.seq, good: -qc.qtyRejected, scrap: 0, source, note: `${ACTION_LABEL[action]} from ${q.name}${opts.note ? ` — ${opts.note}` : ""}` }, user);
+    r = await syncOrder(tx, id, user, before, { action, note: opts.note, forceStatus: "REWORK" });
+    toName = flow[to]!.name;
+  }
+  await tx.workOrder.update({ where: { id }, data: { qualityStatus: action === "QC_PASS" ? "Passed" : "Rejected" } });
+  await tx.inspection.create({
+    data: {
+      workOrderId: id,
+      stageName: q.name,
+      result: action === "QC_PASS" ? "PASS" : action === "QC_REJECT_LAST" ? "REJECT_LAST" : "REJECT_START",
+      qtyInspected: qc.qtyInspected,
+      qtyRejected: qc.qtyRejected,
+      rejectionReasonId: qc.reasonId,
+      inspectorId: user.id,
+      inspectorName: user.name,
+      notes: opts.note?.slice(0, 500) || null,
+    },
+  });
+  const code = `${wo.woNo}-${wo.lineNo}`;
+  if (action !== "QC_PASS") await notifyRole(tx, "planning", "F", { kind: "rejection", title: `${code}: ${qc.qtyRejected} pcs rejected at ${q.name} — back to ${toName}`, body: opts.note ?? null, link: `/work-orders/${id}` }, user.id);
+  await audit(tx, user, "stage", "WorkOrder", id, `${code}: ${ACTION_LABEL[action]} at ${q.name} — inspected ${qc.qtyInspected}, rejected ${qc.qtyRejected}${action !== "QC_PASS" ? ` (back to ${toName})` : ""}`, { status: wo.status, stage: q.name }, { status: r.status, stage: r.stage });
+  return { completed: r.completed, toStatus: r.status };
+}
+
 /**
  * Move an order along its route (Planning and Quality). The version the
  * screen was drawn on must still be current — two people clicking at once
  * cannot move it twice.
  */
-export async function applyStageAction(id: number, version: number, action: StageAction, user: Actor, opts: { note?: string | null; qc?: QcDetail } = {}): Promise<{ completed: boolean; toStatus: WoStatus }> {
+export async function applyStageAction(id: number, version: number, action: StageAction, user: Actor, opts: { note?: string | null; qc?: QcDetail; source?: OutputSource } = {}): Promise<{ completed: boolean; toStatus: WoStatus }> {
   return prisma.$transaction(async (tx) => {
+    await lockOrder(tx, id);
     const wo = await tx.workOrder.findUnique({ where: { id }, include: { stages: { orderBy: { seq: "asc" } } } });
     if (!wo) throw new UserError("The order no longer exists.");
     if (wo.version !== version) throw new UserError(STALE);
+    if (!wo.stages.length) throw new UserError("This order has no route — set up its process's routing in Master Data.");
+    if (QTY_ACTIONS.includes(action)) return qtyAction(tx, id, action, user, opts);
     const stages = wo.stages.map((s) => ({ name: s.name, qcRequired: s.qcRequired }));
     const state: WoState = { status: wo.status as WoStatus, stageIndex: wo.stageIndex, stageState: wo.stageState as WoState["stageState"], heldFrom: wo.heldFrom as WoStatus | null };
     const t = transition(state, action, stages);
     if (!t.ok) throw new UserError(t.error);
-    const isQc = action.startsWith("QC_");
-    if (isQc) {
-      if (!opts.qc) throw new UserError("Enter the inspected quantity.");
-      if (opts.qc.qtyInspected < 1 || opts.qc.qtyInspected > wo.qty * 10) throw new UserError("The inspected quantity is not valid.");
-      if (opts.qc.qtyRejected < 0 || opts.qc.qtyRejected > opts.qc.qtyInspected) throw new UserError("The rejected quantity must be between 0 and the inspected quantity.");
-      if (action !== "QC_PASS" && !opts.qc.reasonId) throw new UserError("Choose the rejection reason — it feeds the scrap analysis.");
-    }
+    // Start, Rework, Hold / Waiting, Resume, Cancel: the order's label only — no piece moves
     const now = new Date();
     const res = await tx.workOrder.updateMany({
       where: { id, version },
@@ -154,62 +224,19 @@ export async function applyStageAction(id: number, version: number, action: Stag
         heldFrom: t.state.heldFrom,
         version: { increment: 1 },
         ...(action === "START" && !wo.startedAt ? { startedAt: now } : {}),
-        ...(t.completed ? { completedAt: now } : {}),
-        ...(isQc ? { qualityStatus: action === "QC_PASS" ? "Passed" : "Rejected" } : {}),
       },
     });
     if (res.count !== 1) throw new UserError(STALE);
     const fromStage = stageNameAt(stages, wo.stageIndex);
-    const toStage = t.completed ? "Complete" : stageNameAt(stages, t.state.stageIndex);
+    const toStage = stageNameAt(stages, t.state.stageIndex);
     await tx.stageMove.create({
-      data: { workOrderId: id, userId: user.id, userName: user.name, action: t.completed ? "COMPLETE" : action, fromStage, toStage, fromStatus: wo.status, toStatus: t.state.status, note: opts.note?.slice(0, 500) || null },
+      data: { workOrderId: id, userId: user.id, userName: user.name, action, fromStage, toStage, fromStatus: wo.status, toStatus: t.state.status, note: opts.note?.slice(0, 500) || null },
     });
-    if (isQc && opts.qc) {
-      await tx.inspection.create({
-        data: {
-          workOrderId: id,
-          stageName: fromStage ?? "",
-          result: action === "QC_PASS" ? "PASS" : action === "QC_REJECT_LAST" ? "REJECT_LAST" : "REJECT_START",
-          qtyInspected: opts.qc.qtyInspected,
-          qtyRejected: opts.qc.qtyRejected,
-          rejectionReasonId: opts.qc.reasonId,
-          inspectorId: user.id,
-          inspectorName: user.name,
-          notes: opts.note?.slice(0, 500) || null,
-        },
-      });
-    }
-    if (t.completed) {
-      // the finished castings go into FG stock (§3 step 7)
-      const row = await tx.stockRow.create({
-        data: {
-          kind: "FG",
-          materialId: wo.materialId,
-          productId: wo.productId,
-          workOrderId: wo.id,
-          description: wo.fullName,
-          od: wo.od,
-          innerDia: wo.innerDia,
-          length: wo.length,
-          unit: "pcs",
-          totalQty: wo.qty,
-        },
-      });
-      await tx.stockMove.create({ data: { stockRowId: row.id, delta: wo.qty, reason: "WO_COMPLETE", ref: `${wo.woNo}-${wo.lineNo}`, userName: user.name } });
-    }
-    const code = `${wo.woNo}-${wo.lineNo}`;
-    const link = `/work-orders/${id}`;
     if (t.state.status === "UNDER_INSPECTION" && wo.status !== "UNDER_INSPECTION") {
-      await notifyRole(tx, "quality", "F", { kind: "inspection", title: `${code} is waiting for inspection`, body: `${toStage} · qty ${wo.qty}`, link: "/quality" }, user.id);
-    }
-    if (action === "QC_REJECT_LAST" || action === "QC_REJECT_START") {
-      await notifyRole(tx, "planning", "F", { kind: "rejection", title: `${code} rejected at ${fromStage} — back to ${toStage}`, body: opts.note ?? null, link }, user.id);
-    }
-    if (t.completed) {
-      await notifyRole(tx, "planning", "F", { kind: "completed", title: `${code} is complete — ${wo.qty} pcs into FG stock`, link }, user.id);
+      await notifyRole(tx, "quality", "F", { kind: "inspection", title: `${wo.woNo}-${wo.lineNo} is waiting for inspection`, body: toStage, link: "/quality" }, user.id);
     }
     await audit(tx, user, "stage", "WorkOrder", id, `${wo.woNo}-${wo.lineNo}: ${ACTION_LABEL[action]}${fromStage ? ` (${fromStage} → ${toStage ?? "—"})` : ""}`, { status: wo.status, stage: fromStage }, { status: t.state.status, stage: toStage });
-    return { completed: t.completed, toStatus: t.state.status };
+    return { completed: false, toStatus: t.state.status };
   });
 }
 

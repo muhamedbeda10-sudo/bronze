@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Fragment, Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   BarChart3, Bell, Boxes, CalendarDays, ChartGantt, CheckCheck, ChevronDown, ClipboardCheck, ClipboardList, Clock, Database, Factory, FileBarChart, Gauge, Grid3x3, Hammer, History,
-  Home, Kanban, LayoutList, ListOrdered, LogOut, Menu, Moon, Plus, Search, Settings, Sun, Tablet, Truck, Users, BookOpen, X, type LucideIcon,
+  Home, Kanban, LayoutList, ListOrdered, LogOut, Menu, Moon, Plus, Search, Settings, Sun, Table2, Tablet, Truck, Users, BookOpen, Warehouse, X, type LucideIcon,
 } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
 import { locate, type AppDef, type IconName, type NavSection } from "@/lib/nav";
@@ -15,7 +15,7 @@ import { signOutAction } from "@/app/actions";
 export const ICONS: Record<IconName, LucideIcon> = {
   home: Home, orders: ClipboardList, plus: Plus, board: Factory, queue: ListOrdered, calendar: CalendarDays, gauge: Gauge, bell: Bell, hammer: Hammer, history: History,
   list: LayoutList, tablet: Tablet, check: ClipboardCheck, boxes: Boxes, truck: Truck, ledger: BookOpen, clock: Clock, chart: BarChart3, report: FileBarChart, db: Database,
-  users: Users, settings: Settings, kanban: Kanban, gantt: ChartGantt,
+  users: Users, settings: Settings, kanban: Kanban, gantt: ChartGantt, tracker: Table2, floor: Warehouse,
 };
 
 export interface ShellUser { name: string; roleLabel: string; email: string }

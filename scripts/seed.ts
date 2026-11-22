@@ -11,6 +11,7 @@ try { process.loadEnvFile(".env"); } catch {}
 import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/server/password";
 import { applyStageAction, createWorkOrder } from "@/lib/server/workOrders";
+import { loadFlow, recordOutput } from "@/lib/server/flow";
 import { ROLE_ACCESS, type Role } from "@/lib/domain/access";
 import { addDays, today } from "@/lib/domain/dates";
 import type { StageAction } from "@/lib/domain/routing";
@@ -29,6 +30,7 @@ async function wipe() {
     prisma.issueRequest.deleteMany(),
     prisma.overtimeRequest.deleteMany(),
     prisma.inspection.deleteMany(),
+    prisma.stageOutput.deleteMany(),
     prisma.activity.deleteMany(),
     prisma.stageMove.deleteMany(),
     prisma.workOrderStage.deleteMany(),
@@ -290,11 +292,20 @@ async function main() {
       }
       // spread the moves over the order's life so the history reads like a real one
       const moves = await prisma.stageMove.findMany({ where: { workOrderId: id }, orderBy: { id: "asc" } });
+      const outs = await prisma.stageOutput.findMany({ where: { workOrderId: id }, orderBy: { id: "asc" } });
+      const newAt: Date[] = [];
       for (let k = 0; k < moves.length; k++) {
         const at = new Date(addDays(woDate, Math.min(o.ago, Math.round(((k + 1) * o.ago) / (moves.length + 1)))).getTime() + (8 + (k % 8)) * 3_600_000);
+        newAt.push(at);
         await prisma.stageMove.update({ where: { id: moves[k]!.id }, data: { at } });
         if (moves[k]!.action === "COMPLETE") await prisma.workOrder.update({ where: { id }, data: { completedAt: at } });
         if (k === 0) await prisma.workOrder.update({ where: { id }, data: { startedAt: at } });
+      }
+      // each ledger row on the day of the move it belongs to (the move is written just after it)
+      for (const x of outs) {
+        const k = moves.findIndex((m) => m.at.getTime() >= x.createdAt.getTime());
+        const at = newAt[k >= 0 ? k : newAt.length - 1];
+        if (at) await prisma.stageOutput.update({ where: { id: x.id }, data: { date: at, createdAt: at } });
       }
       const insp = await prisma.inspection.findMany({ where: { workOrderId: id } });
       for (const x of insp) {
@@ -302,6 +313,17 @@ async function main() {
         if (mv) await prisma.inspection.update({ where: { id: x.id }, data: { at: (await prisma.stageMove.findUnique({ where: { id: mv.id } }))!.at } });
       }
     }
+  }
+
+  // ---- pieces split across stages: part of an order already moved on (the Plan Tracker and the floor show it)
+  const partial: [string, number, number, number][] = [["2558", 1, 20, 2], ["2547", 1, 15, 1], ["2547", 2, 10, 4], ["14444", 2, 6, 3]];
+  for (const [no, line, n, ago] of partial) {
+    const w = await prisma.workOrder.findFirst({ where: { woNo: no, lineNo: line } });
+    if (!w || w.stageIndex === null) continue;
+    const { flow } = await prisma.$transaction((tx) => loadFlow(tx, w.id));
+    const cur = flow[w.stageIndex];
+    if (!cur || cur.qcRequired || cur.waiting < 2) continue;
+    await recordOutput(w.id, { seq: cur.seq, good: Math.min(n, cur.waiting - 1), scrap: 0, source: "floor", date: addDays(t0, -ago) }, planner);
   }
 
   // ---- workshop activity: the last 14 days, on the orders that ran

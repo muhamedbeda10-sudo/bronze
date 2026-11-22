@@ -336,6 +336,31 @@ a.kpi:hover { border-color: var(--brand); box-shadow: var(--shadow-sm); }
 .dt tr.group-row td { background: var(--surface-3); font-weight: 600; cursor: pointer; }
 .dt tfoot td { position: sticky; bottom: 0; background: var(--surface-2); font-weight: 600; padding: 8px 10px; border-top: 1px solid var(--border-strong); }
 .dt .code { font-weight: 600; color: var(--foreground); }
+
+/* ============ the Plan Tracker: a cell per stage — finished / reached, what waits, what was scrapped ============ */
+.dt.tracker td.tc { padding: 3px 4px; min-width: 104px; }
+.tc-btn { all: unset; box-sizing: border-box; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: baseline; gap: 0 4px; width: 100%; padding: 4px 8px; border-radius: var(--r-sm); border: 1px solid transparent; font-variant-numeric: tabular-nums; }
+button.tc-btn { cursor: pointer; border-color: var(--border); background: var(--surface); }
+button.tc-btn:hover { border-color: var(--brand); background: var(--brand-light); }
+button.tc-btn:focus-visible { outline: 2px solid var(--brand-ink); outline-offset: 1px; }
+.tc-good { font-weight: 600; color: var(--foreground); }
+.tc-good.done { color: var(--ok-fg); }
+.tc-of { color: var(--muted); font-size: var(--fs-sm); }
+.tc-wait { flex-basis: 100%; text-align: end; font-size: 11px; font-weight: 600; color: var(--warn-fg); }
+.tc-scrap { font-size: 11px; font-weight: 600; color: var(--bad-fg); }
+
+/* ============ the workshop floor: a lot of pieces waiting at a stage ============ */
+.lot { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 16px; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.lot:last-child { border-bottom: 0; }
+.lot.urgent { box-shadow: inset 3px 0 0 var(--bad-fg); }
+.lot.high { box-shadow: inset 3px 0 0 var(--warn-fg); }
+.lot-qty { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
+.lot-flow { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--muted); }
+.lot-flow b { color: var(--foreground); font-weight: 600; }
+.lot-form { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
+.lot-form .input, .lot-form .select { height: 32px; }
+.lot-form .num-in { width: 96px; }
+@media (min-width: 900px) { .lot { grid-template-columns: minmax(0, 1fr) 110px minmax(0, 1.1fr); } .lot-form { grid-column: auto; justify-content: flex-end; } }
 .table-foot { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); padding: 8px 2px 0; font-size: var(--fs-sm); color: var(--muted); }
 .bulkbar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; margin-bottom: 8px; border-radius: var(--r-md); background: var(--brand-light); border: 1px solid color-mix(in srgb, var(--brand) 40%, transparent); color: var(--brand-ink); font-weight: 500; }
 

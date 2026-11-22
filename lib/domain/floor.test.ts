@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canConfirmStage, parseScan } from "./floor";
+import { canConfirmStage, canRecordStage, parseScan } from "./floor";
 import { ROLE_ACCESS } from "./access";
 
 describe("canConfirmStage", () => {
@@ -12,6 +12,17 @@ describe("canConfirmStage", () => {
     expect(canConfirmStage(ROLE_ACCESS.PLANNER, null, 5, false)).toBe(true);
     expect(canConfirmStage(ROLE_ACCESS.PLANNER, null, 5, true)).toBe(false);
     expect(canConfirmStage(ROLE_ACCESS.QC_INSPECTOR, null, 5, false)).toBe(false);
+  });
+});
+
+describe("canRecordStage", () => {
+  it("lets Quality record a quality stage, and the floor its own workshop's stages", () => {
+    expect(canRecordStage(ROLE_ACCESS.QC_INSPECTOR, null, 3, true)).toBe(true);
+    expect(canRecordStage(ROLE_ACCESS.WORKSHOP_SUPERVISOR, 1, 3, true)).toBe(false);
+    expect(canRecordStage(ROLE_ACCESS.WORKSHOP_SUPERVISOR, 1, 1, false)).toBe(true);
+    expect(canRecordStage(ROLE_ACCESS.WORKSHOP_SUPERVISOR, 1, 2, false)).toBe(false);
+    expect(canRecordStage(ROLE_ACCESS.PLANNER, null, 2, false)).toBe(true);
+    expect(canRecordStage(ROLE_ACCESS.USER, null, 2, false)).toBe(false);
   });
 });
 

@@ -49,6 +49,7 @@ CI (`.github/workflows/ci.yml`): types, lint, unit tests, build and seed against
 | Master Data | `/master/*` | [master-data](docs/features/master-data.md) |
 | Work Orders | `/work-orders` | [work-orders](docs/features/work-orders.md) |
 | Production Planning | `/planning` | [planning](docs/features/planning.md) |
+| Plan Tracker, Workshop Floor (pieces flow) | `/planning/tracker`, `/workshop/floor` | [pieces-flow](docs/features/pieces-flow.md) |
 | Workshop Execution | `/workshop` | [workshop](docs/features/workshop.md) |
 | Shop-floor kiosk, traveler QR | `/floor`, `/print/traveler` | [shop-floor-kiosk](docs/features/shop-floor-kiosk.md) |
 | Quality Control | `/quality` | [quality](docs/features/quality.md) |

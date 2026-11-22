@@ -8,7 +8,7 @@ import { can, type Access, type Level, type Module } from "@/lib/domain/access";
 
 export type IconName =
   | "home" | "orders" | "plus" | "board" | "queue" | "calendar" | "gauge" | "bell" | "hammer" | "history" | "list" | "tablet"
-  | "check" | "boxes" | "truck" | "ledger" | "clock" | "chart" | "report" | "db" | "users" | "settings" | "kanban" | "gantt";
+  | "check" | "boxes" | "truck" | "ledger" | "clock" | "chart" | "report" | "db" | "users" | "settings" | "kanban" | "gantt" | "tracker" | "floor";
 
 export type AppKey = "mywork" | "manufacturing" | "kiosk" | "quality" | "inventory" | "overtime" | "settings";
 
@@ -38,9 +38,11 @@ export const APPS: AppDef[] = [
       { label: "Operations", links: [
         L("/work-orders", "Work Orders", "workOrders", "orders", undefined, "List, Kanban, Gantt"),
         L("/work-orders/new", "New Work Order", "workOrders", "plus", "E"),
+        L("/workshop/floor", "Workshop Floor", "workshop", "floor", undefined, "Pieces waiting here"),
         L("/workshop", "Record Activity", "workshop", "hammer", "E"),
       ] },
       { label: "Planning", links: [
+        L("/planning/tracker", "Plan Tracker", "planning", "tracker", undefined, "Pieces per stage"),
         L("/planning", "Execution Board", "planning", "board"),
         L("/planning/weekly", "Weekly Plan", "planning", "calendar"),
         L("/planning/capacity", "Capacity", "planning", "gauge"),
