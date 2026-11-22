@@ -197,6 +197,8 @@ html.dark .app-tile-icon { background: #f5f3f0; box-shadow: 0 6px 18px rgb(0 0 0
 .dropdown-item .di-icon { color: var(--muted); flex: none; }
 .dropdown-item.on .di-icon { color: var(--brand-ink); }
 .dropdown-sep { height: 1px; margin: 5px 4px; background: var(--border); }
+/* a group inside one menu (Reporting: Analytics · Reports · History), as Odoo's: plain words, not a section's capitals */
+.dropdown-subhead { text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--foreground); }
 
 /* ============ the control panel (under the app bar) ============ */
 .cpanel { position: sticky; top: var(--bar-h); z-index: 30; background: var(--surface); border-bottom: 1px solid var(--border); }

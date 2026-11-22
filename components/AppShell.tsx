@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   BarChart3, Bell, Boxes, CalendarDays, ChartGantt, CheckCheck, ChevronDown, ClipboardCheck, ClipboardList, Clock, Database, Factory, FileBarChart, Gauge, Grid3x3, Hammer, History,
   Home, Kanban, LayoutList, ListOrdered, LogOut, Menu, Moon, Plus, Search, Settings, Sun, Tablet, Truck, Users, BookOpen, X, type LucideIcon,
@@ -41,14 +41,20 @@ function SectionLinks({ sections, current, onPick }: { sections: NavSection[]; c
         <div key={i}>
           {i > 0 && <div className="dropdown-sep" />}
           {s.label && <div className="dropdown-head">{s.label}</div>}
-          {s.links.map((l) => {
+          {s.links.map((l, j) => {
             const I = ICONS[l.icon];
+            // a subheading where a group starts (Reporting: Analytics · Reports · History)
+            const head = l.group && l.group !== s.links[j - 1]?.group;
             return (
-              <Link key={l.href} href={l.href} className={`dropdown-item ${current === l.href ? "on" : ""}`} onClick={onPick} role="menuitem">
-                <I size={16} className="di-icon" aria-hidden />
-                <span style={{ flex: 1 }}>{l.label}</span>
-                {l.hint && <span className="muted" style={{ fontSize: 11 }}>{l.hint}</span>}
-              </Link>
+              <Fragment key={l.href}>
+                {head && j > 0 && <div className="dropdown-sep" />}
+                {head && <div className="dropdown-head dropdown-subhead">{l.group}</div>}
+                <Link href={l.href} className={`dropdown-item ${current === l.href ? "on" : ""}`} onClick={onPick} role="menuitem">
+                  <I size={16} className="di-icon" aria-hidden />
+                  <span style={{ flex: 1 }}>{l.label}</span>
+                  {l.hint && <span className="muted" style={{ fontSize: 11 }}>{l.hint}</span>}
+                </Link>
+              </Fragment>
             );
           })}
         </div>

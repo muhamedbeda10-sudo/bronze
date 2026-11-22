@@ -12,7 +12,8 @@ export type IconName =
 
 export type AppKey = "mywork" | "manufacturing" | "kiosk" | "quality" | "inventory" | "overtime" | "settings";
 
-export interface NavLink { href: string; label: string; module: Module | null; level?: Level; icon: IconName; hint?: string }
+/** `group`: a subheading inside a dropdown, as Odoo's (Reporting: Analytics · Reports · History); consecutive links of one group sit under it. */
+export interface NavLink { href: string; label: string; module: Module | null; level?: Level; icon: IconName; hint?: string; group?: string }
 /** A section with a label is a dropdown in the bar; one without puts its links on the bar itself. */
 export interface NavSection { label?: string; links: NavLink[] }
 export interface AppDef { key: AppKey; label: string; desc: string; home: string; sections: NavSection[]; /** a page of its own outside the shell (the kiosk) */ standalone?: boolean }
@@ -21,6 +22,7 @@ const L = (href: string, label: string, module: Module | null, icon: IconName, l
 const R = (key: string, label: string) => L(`/reports?report=${key}`, label, "reports", "report");
 const M = (tab: string, label: string) => L(`/master/${tab}`, label, "masterData", "db");
 const S = (tab: string, label: string) => L(`/inventory/${tab}`, label, "inventory", "boxes");
+const G = (group: string, links: NavLink[]): NavLink[] => links.map((l) => ({ ...l, group }));
 
 export const APPS: AppDef[] = [
   { key: "mywork", label: "My Work", desc: "What is waiting for you", home: "/my-work", sections: [{ links: [L("/my-work", "My Work", null, "home")] }] },
@@ -46,12 +48,16 @@ export const APPS: AppDef[] = [
       ] },
       { label: "Products", links: [M("products", "FG Products"), M("materials", "Materials"), M("molds", "Molds"), M("routing", "Routing")] },
       { label: "Reporting", links: [
-        L("/analytics", "Production Analytics", "dashboard", "chart"),
-        R("wo-status", "Work Order Status"), R("efficiency", "Production Efficiency"), R("machines", "Machine Utilization"),
-        R("material", "Material Consumption"), R("scrap", "Scrap Analysis"), R("delivery", "Delivery Performance"),
-        L("/work-orders/history", "Work Order History", "workOrders", "history"),
-        L("/workshop/history", "Workshop History", "workshop", "history"),
-        L("/workshop/logs", "Workshop Logs", "workshop", "list"),
+        ...G("Analytics", [L("/analytics", "Production Analytics", "dashboard", "chart")]),
+        ...G("Reports", [
+          R("wo-status", "Work Order Status"), R("efficiency", "Production Efficiency"), R("machines", "Machine Utilization"),
+          R("material", "Material Consumption"), R("scrap", "Scrap Analysis"), R("delivery", "Delivery Performance"),
+        ]),
+        ...G("History", [
+          L("/work-orders/history", "Work Order History", "workOrders", "history"),
+          L("/workshop/history", "Workshop History", "workshop", "history"),
+          L("/workshop/logs", "Workshop Logs", "workshop", "list"),
+        ]),
       ] },
       { label: "Configuration", links: [
         M("workshops", "Workshops"), M("machines", "Machines"), M("processes", "Processes"),

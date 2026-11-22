@@ -25,6 +25,8 @@ describe("apps", () => {
     const m = appsFor(ALL).find((a) => a.key === "manufacturing")!;
     expect(m.home).toBe("/planning/workshop");
     expect(m.sections.map((s) => s.label ?? s.links.map((l) => l.label).join())).toEqual(["Overview", "Operations", "Planning", "Products", "Reporting", "Configuration"]);
+    const reporting = m.sections.find((s) => s.label === "Reporting")!;
+    expect([...new Set(reporting.links.map((l) => l.group))]).toEqual(["Analytics", "Reports", "History"]);
   });
   it("finds the app and entry of a path", () => {
     const all = appsFor(ALL);
