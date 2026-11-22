@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { getUser, NO_PERMISSION, NOT_SIGNED_IN, actionUser } from "@/lib/server/auth";
 import { audit } from "@/lib/server/audit";
 import { dbError, fail, type ActionResult } from "@/lib/server/result";
+import { notify, notifyRole } from "@/lib/server/notify";
 import { validateOvertime } from "@/lib/domain/overtime";
 import { can } from "@/lib/domain/access";
 import { fmtDay } from "@/lib/domain/dates";
@@ -23,6 +24,9 @@ export async function requestOvertime(raw: Record<string, unknown>): Promise<Act
     await prisma.$transaction(async (tx) => {
       const r = await tx.overtimeRequest.create({ data: { ...v.value, requestedById: user.id, requestedBy: user.name } });
       await audit(tx, user, "create", "OvertimeRequest", r.id, `Requested ${v.value.hours} h overtime for ${op.name} on ${fmtDay(v.value.date)}`, null, r);
+      const note = { kind: "approval", title: `Overtime to approve: ${op.name}, ${v.value.hours} h on ${fmtDay(v.value.date)}`, body: v.value.reason, link: "/planning/notifications" };
+      await notifyRole(tx, "planning", "F", note, user.id);
+      await notifyRole(tx, "overtime", "F", note, user.id);
     });
   } catch (e) {
     return dbError(e, "save the request");
@@ -46,6 +50,7 @@ export async function decideOvertime(id: number, approve: boolean, note: string)
         data: { status: approve ? "APPROVED" : "REJECTED", processedById: user.id, processedBy: user.name, processedAt: new Date(), decisionNote: note.trim().slice(0, 500) || null },
       });
       if (res.count !== 1) return "done";
+      if (r.requestedById) await notify(tx, [r.requestedById], { kind: approve ? "approved" : "rejected", title: `Overtime ${approve ? "approved" : "rejected"}: ${r.operator.name}, ${r.hours} h on ${fmtDay(r.date)}`, body: note.trim() || null, link: "/overtime/history" }, user.id);
       await audit(tx, user, approve ? "approve" : "reject", "OvertimeRequest", id, `${approve ? "Approved" : "Rejected"} ${r.hours} h overtime for ${r.operator.name} on ${fmtDay(r.date)}`, { status: r.status }, { status: approve ? "APPROVED" : "REJECTED" });
       return null;
     });

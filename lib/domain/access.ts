@@ -113,7 +113,7 @@ export function visibleModules(access: Access): Module[] {
 
 /** Where to land after signing in: the first module the account sees. */
 export const MODULE_PATH: Record<Module, string> = {
-  dashboard: "/",
+  dashboard: "/analytics",
   masterData: "/master",
   workOrders: "/work-orders",
   planning: "/planning",
@@ -125,19 +125,19 @@ export const MODULE_PATH: Record<Module, string> = {
   settings: "/settings",
 };
 
+/** Where to land after signing in: everyone's own "My work" home, once they see anything. */
 export function homePath(access: Access): string {
-  const first = visibleModules(access)[0];
-  return first ? MODULE_PATH[first] : "/no-access";
+  return visibleModules(access).length ? "/" : "/no-access";
 }
 
 /** The module a path belongs to (the longest matching prefix). */
 export function moduleOfPath(pathname: string): Module | null {
-  if (pathname === "/") return "dashboard";
+  if (pathname === "/") return null;
   let best: Module | null = null;
   let len = 0;
   for (const m of MODULES) {
     const p = MODULE_PATH[m];
-    if (p !== "/" && (pathname === p || pathname.startsWith(p + "/")) && p.length > len) {
+    if ((pathname === p || pathname.startsWith(p + "/")) && p.length > len) {
       best = m;
       len = p.length;
     }

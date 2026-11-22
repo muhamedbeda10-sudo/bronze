@@ -16,6 +16,10 @@ const force = process.argv.includes("--force");
 
 async function wipe() {
   await prisma.$transaction([
+    prisma.notification.deleteMany(),
+    prisma.comment.deleteMany(),
+    prisma.attachment.deleteMany(),
+    prisma.savedView.deleteMany(),
     prisma.auditLog.deleteMany(),
     prisma.stockMove.deleteMany(),
     prisma.stockRow.deleteMany(),
@@ -383,6 +387,15 @@ async function main() {
     await prisma.overtimeRequest.create({
       data: { date: addDays(t0, d), operatorId: op.id, workshopId: ws[w]!.id, fromTime: from, toTime: `${16 + hours}:00`, hours, reason, status, requestedBy: "Hany Fathy", processedBy: status === "PENDING" ? null : planner.name, processedById: status === "PENDING" ? null : planner.id, processedAt: status === "PENDING" ? null : addDays(t0, d) },
     });
+  }
+
+  // ---- a conversation on the urgent impeller, with a mention
+  const imp = await prisma.workOrder.findFirst({ where: { woNo: "2526" } });
+  const qcUser = created[4]!;
+  if (imp) {
+    await prisma.comment.create({ data: { entity: "WorkOrder", entityId: imp.id, userId: planner.id, userName: planner.name, body: `@[${qcUser.name}](${qcUser.id}) the customer needs these 4 impellers by Thursday — please inspect them first when they reach Inspection.` } });
+    await prisma.comment.create({ data: { entity: "WorkOrder", entityId: imp.id, userId: qcUser.id, userName: qcUser.name, body: "Noted. Send the balancing report with them." } });
+    await prisma.notification.create({ data: { userId: qcUser.id, kind: "mention", title: `${planner.name} mentioned you on 2526-1`, body: "the customer needs these 4 impellers by Thursday…", link: `/work-orders/${imp.id}` } });
   }
 
   console.log(`Seeded. Sign in as ${email} with ADMIN_PASSWORD. Demo users (same password): ${users.slice(1).map((u) => u[0]).join(", ")}`);

@@ -1,4 +1,6 @@
-# Dashboard
+# Production Analytics
+
+Reporting → Production Analytics (`/analytics`; everyone's home is now My Work).
 
 Filters: from, to (default the last 30 days), workshop, process — kept in the address.
 **Overview (now):** open work orders (and how many are on the floor), delayed orders (open and past due), completed today, material required (raw req. + allowance of open orders).

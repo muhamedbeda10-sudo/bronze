@@ -25,11 +25,12 @@ describe("access", () => {
   });
 
   it("maps paths to modules and finds the landing page", () => {
-    expect(moduleOfPath("/")).toBe("dashboard");
+    expect(moduleOfPath("/")).toBeNull();
+    expect(moduleOfPath("/analytics")).toBe("dashboard");
     expect(moduleOfPath("/work-orders/history")).toBe("workOrders");
     expect(moduleOfPath("/master/materials")).toBe("masterData");
     expect(moduleOfPath("/login")).toBeNull();
-    expect(homePath({ quality: "F" })).toBe("/quality");
+    expect(homePath({ quality: "F" })).toBe("/");
     expect(homePath({})).toBe("/no-access");
   });
 });

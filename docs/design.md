@@ -1,14 +1,13 @@
 # Design
 
-Brand from lotfybronze.com and its logo: **bronze `#A26E55`**, ink `#323232`, deep navy `#181B31`; **Forum** for headings, **Roboto** for text (self-hosted via `@fontsource`).
-The shell and the rules follow Production-Control:
+Enterprise pattern of Dynamics 365 / Odoo Enterprise, in the Lotfy Bronze brand (lotfybronze.com and its logo): **bronze `#A26E55`**, deep navy **`#181B31`**, **Roboto** for the work, **Forum** for the brand mark only.
 
-- A deep sidebar (the site's navy) down the left, resting as a strip of icons and opening over the page on hover, or kept open with its pin; a white top bar with the place's name, light/dark and the account. Below 1024 px a drawer (☰).
-- Calm grey pages, white work surfaces; bronze is the accent — actions, the lit place, focus — never the chrome.
-- Which bronze when (each passes WCAG AA for its job, both themes): `--brand` borders, bars, dots; `--brand-fill` under white text; `--brand-ink` for bronze text; `--brand-light` a tint behind it.
-- Status colours are kept apart from the brand: ok / warn / bad / info / neutral, always with a label.
-- One type scale (11 label · 12 · 13 data floor · 14 · 22 title · 28 KPI); a 4 px spacing step; three radii.
-- Every list sits in `DataTable`: sticky head, sort by a head, one search, Excel of exactly what is shown, PDF via print, rows become cards on a phone.
-- One bar of filters over a page (`FilterBar`), kept in the address so a link shares the view.
-- Charts: thin marks, recessive grid, one axis, a legend only for two series, a hover tooltip on each; the categorical colours (`--viz-*`) were checked with the dataviz validator in light and dark.
-- Dark mode is selected, not flipped: its own steps of each token.
+- **App bar** (`components/AppShell.tsx`): the navy bar with the module menus — My Work · Production · Quality · Inventory · People · Reporting · Configuration — each a dropdown of its places (`lib/nav.ts`, one list for the menus, the phone's drawer, the breadcrumb and the command palette). An account sees only the entries it can open. Search (Ctrl+K), notifications, light/dark, the account.
+- **Control panel**: under the bar, the breadcrumb (menu / place, a record adds its name — `Crumb`) and the page's actions on the right (`CpanelActions`, `components/Cpanel.tsx`).
+- **List views**: a search box with facets (filter, group), Filters, Group by and Favorites (saved searches, one default per person), a view switcher List | Kanban | Gantt, selectable rows with bulk actions, clickable rows, groups that fold with sums, paging of 80.
+- **Record page (form view)**: action buttons and a status bar of the stages as chevrons, the title and badges, fields in columns, a notebook of tabs, and the **chatter** beside it — messages with @mentions, attachments, and the record's history in one timeline.
+- **Shop floor**: a full-screen kiosk with big touch targets, for a tablet; the printed traveler carries a QR that opens the order there.
+- Neutral surfaces, sharp radii (4/6/8 px), 32 px controls, 36 px table rows; bronze marks actions and the current place, never the chrome. Status colours stay apart from the brand and always carry a label.
+- Which bronze when (WCAG AA for each job, both themes): `--brand` bars and rings; `--brand-fill` under white text; `--brand-ink` bronze text; `--brand-light` a tint.
+- Charts: thin marks, recessive grid, one axis, a legend only for two series, a hover tooltip; the `--viz-*` colours checked with the dataviz validator, light and dark.
+- Dark mode is selected, not flipped. Every screen is checked light, dark and at 390 px.

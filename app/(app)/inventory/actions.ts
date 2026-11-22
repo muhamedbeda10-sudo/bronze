@@ -5,6 +5,7 @@ import { actionUser } from "@/lib/server/auth";
 import { audit } from "@/lib/server/audit";
 import { dbError, fail, type ActionResult } from "@/lib/server/result";
 import { readSheet } from "@/lib/server/excelRead";
+import { notify, notifyRole } from "@/lib/server/notify";
 import { STOCK_FIELDS, validateIssueRequest, validateStock, type StockLookups } from "@/lib/domain/stock";
 import { STOCK_KIND_LABEL, STOCK_KIND_UNIT, STOCK_KINDS, type StockKind } from "@/lib/domain/status";
 import { today } from "@/lib/domain/dates";
@@ -123,6 +124,7 @@ export async function createIssueRequest(raw: Record<string, unknown>): Promise<
       while (await tx.issueRequest.findUnique({ where: { reqNo } })) reqNo = `IR-${String(Number(reqNo.slice(3)) + 1).padStart(4, "0")}`;
       const r = await tx.issueRequest.create({ data: { ...v.value, reqNo, date: today(), requestedById: user.id, requestedBy: user.name } });
       await audit(tx, user, "create", "IssueRequest", r.id, `Issue request ${reqNo}: ${v.value.qtyKg} kg`, null, r);
+      await notifyRole(tx, "inventory", "F", { kind: "approval", title: `Issue request ${reqNo}: ${v.value.qtyKg} kg to process`, link: "/inventory/issues" }, user.id);
     });
   } catch (e) {
     return dbError(e, "save the request");
@@ -155,6 +157,7 @@ export async function processIssueRequest(id: number, issue: boolean, note: stri
         await tx.stockRow.update({ where: { id: wip.id }, data: { totalQty: { increment: r.qtyKg }, version: { increment: 1 } } });
         await tx.stockMove.create({ data: { stockRowId: wip.id, delta: r.qtyKg, reason: "RECEIVE_WIP_RAW", ref: r.reqNo, userName: user.name } });
       }
+      if (r.requestedById) await notify(tx, [r.requestedById], { kind: issue ? "approved" : "rejected", title: `${r.reqNo} ${issue ? "issued" : "rejected"}: ${r.qtyKg} kg ${r.material.name}`, body: note.trim() || null, link: "/inventory/issues" }, user.id);
       await audit(tx, user, issue ? "issue" : "reject", "IssueRequest", id, `${issue ? "Issued" : "Rejected"} ${r.reqNo}: ${r.qtyKg} kg ${r.material.name} to ${r.workshop.name}`);
       return null;
     });

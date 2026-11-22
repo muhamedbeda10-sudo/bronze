@@ -1,46 +1,39 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Plus } from "lucide-react";
-import { TabLinks } from "@/components/TabLinks";
-import { WoList } from "@/components/WoList";
+import { redirect } from "next/navigation";
+import { WoWorkspace } from "@/components/WoWorkspace";
 import { PrintHead } from "@/components/ui";
 import { pageUser } from "@/lib/server/auth";
 import { listOrders } from "@/lib/server/woQueries";
+import { prisma } from "@/lib/db";
 import { can } from "@/lib/domain/access";
-import { WO_TABS } from "@/lib/woTabs";
-import type { Prisma } from "@prisma/client";
+import { addDays, dayKey, today } from "@/lib/domain/dates";
 
-export const metadata: Metadata = { title: "Open Work Orders" };
+export const metadata: Metadata = { title: "Work Orders" };
 
-const FILTERS: { key: string; label: string; where: Prisma.WorkOrderWhereInput }[] = [
-  { key: "open", label: "All open", where: { status: { notIn: ["COMPLETED", "CANCELLED"] } } },
-  { key: "planned", label: "Planned", where: { status: { in: ["PLANNED", "WAITING_MATERIAL", "WAITING_TECH_OFFICE"] } } },
-  { key: "production", label: "In Production", where: { status: { in: ["IN_PRODUCTION", "UNDER_INSPECTION", "REWORK", "ON_HOLD"] } } },
-  { key: "completed", label: "Completed", where: { status: "COMPLETED" } },
-  { key: "cancelled", label: "Cancelled", where: { status: "CANCELLED" } },
-];
-
-export default async function OpenOrders({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
+export default async function WorkOrders({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const user = await pageUser("workOrders");
   const sp = await searchParams;
-  const f = FILTERS.find((x) => x.key === sp.status) ?? FILTERS[0]!;
-  const rows = await listOrders(f.where);
-  const tabs = can(user.access, "workOrders", "E") ? WO_TABS : WO_TABS.filter((t) => t.key !== "new");
+  const saved = await prisma.savedView.findMany({ where: { userId: user.id, page: "work-orders" }, orderBy: { name: "asc" } });
+  // a bare address opens the person's default view
+  const def = saved.find((s) => s.isDefault);
+  if (!Object.keys(sp).length && def?.query) redirect(`/work-orders?${def.query}`);
+  const t = today();
+  const [rows, stages] = await Promise.all([
+    // open orders and those closed in the last half year — older history is in Work Order History
+    listOrders({ OR: [{ status: { notIn: ["COMPLETED", "CANCELLED"] } }, { updatedAt: { gte: addDays(t, -183) } }] }),
+    prisma.routeStage.findMany({ orderBy: [{ routeCode: "asc" }, { stageNo: "asc" }], select: { routeCode: true, name: true } }),
+  ]);
+  const routes = [...stages.reduce((m, s) => m.set(s.routeCode, [...(m.get(s.routeCode) ?? []), s.name]), new Map<string, string[]>()).values()];
   return (
     <>
-      <PrintHead title="Open Work Orders" sub={f.label} />
-      <TabLinks items={tabs} active="open" label="Work orders" />
-      <WoList
+      <PrintHead title="Work Orders" />
+      <WoWorkspace
         rows={rows}
-        mode="open"
-        tools={
-          <>
-            <nav className="seg" aria-label="Status">
-              {FILTERS.map((x) => <Link key={x.key} href={x.key === "open" ? "/work-orders" : `/work-orders?status=${x.key}`} className={x.key === f.key ? "on" : ""} aria-current={x.key === f.key ? "true" : undefined}>{x.label}</Link>)}
-            </nav>
-            {can(user.access, "workOrders", "E") && <Link href="/work-orders/new" className="btn btn-primary btn-sm"><Plus size={15} aria-hidden /> New</Link>}
-          </>
-        }
+        routes={routes}
+        canMove={can(user.access, "planning", "F")}
+        canEdit={can(user.access, "workOrders", "E")}
+        saved={saved.map((s) => ({ id: s.id, name: s.name, query: s.query, isDefault: s.isDefault }))}
+        dueBy={dayKey(addDays(t, 7))}
       />
     </>
   );

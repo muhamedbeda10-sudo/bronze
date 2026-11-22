@@ -18,6 +18,7 @@ npx prisma migrate deploy       # create the tables
 npm run seed                    # demo master data, orders, logs, stock, users
 npm run dev                     # http://localhost:3000
 npm run test:run                # unit tests
+npm run e2e                     # end-to-end, against the running app on a freshly seeded database (BASE_URL)
 ```
 `npm run seed` refuses a database that already holds orders; `npm run seed -- --force` wipes it first (development only).
 Sign in as `ADMIN_EMAIL` / `ADMIN_PASSWORD`. Demo users (same password): `gm@`, `planner@`, `melting@` (supervisor of Melting & Pouring), `qc@`, `store@`, `tech@lotfybronze.com`.
@@ -35,11 +36,13 @@ CI (`.github/workflows/ci.yml`): types, lint, unit tests, build and seed against
 ## Modules
 | Module | Path | Feature doc |
 |---|---|---|
-| Dashboard | `/` | [dashboard](docs/features/dashboard.md) |
+| My Work (home), notifications, search | `/` | [my-work](docs/features/my-work.md) |
+| Production Analytics | `/analytics` | [dashboard](docs/features/dashboard.md) |
 | Master Data | `/master/*` | [master-data](docs/features/master-data.md) |
 | Work Orders | `/work-orders` | [work-orders](docs/features/work-orders.md) |
 | Production Planning | `/planning` | [planning](docs/features/planning.md) |
 | Workshop Execution | `/workshop` | [workshop](docs/features/workshop.md) |
+| Shop-floor kiosk, traveler QR | `/floor`, `/print/traveler` | [shop-floor-kiosk](docs/features/shop-floor-kiosk.md) |
 | Quality Control | `/quality` | [quality](docs/features/quality.md) |
 | Inventory | `/inventory/*` | [inventory](docs/features/inventory.md) |
 | Overtime | `/overtime` | [overtime](docs/features/overtime.md) |
@@ -57,8 +60,14 @@ Design and layout: [docs/design.md](docs/design.md) · Code layout: [docs/layout
 - **Browser tab**: *Lotfy Bronze — CastFlow MES*.
 - **Capacity**: built (load vs machine hours per workshop).
 
+## Enterprise features
+- Dynamics/Odoo-style shell: app bar with module menus, breadcrumb control panel, Ctrl+K search, notifications.
+- Role-based **My Work** home.
+- Work orders as **List / Kanban / Gantt** with filters, group by, saved favorites, bulk actions; drag on the board and the timeline.
+- **Record page** with a status bar, notebook and **chatter** (@mentions, attachments, history).
+- **Traveler** with QR and a **shop-floor kiosk** for tablets.
+
 ## Not built yet (on purpose or for later phases)
 - Sales & Customers (§15), HR & Payroll (§16) and the full Inventory & Warehouse module (§9.2: GRN, heat numbers, valuation) — the next phases of §19.
 - Google sign-in (email + password only for now).
-- Gantt chart.
 - *Delete All History* — left out: history is the audit trail; cancel orders instead.

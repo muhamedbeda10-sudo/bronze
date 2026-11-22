@@ -2,11 +2,12 @@
 
 import { prisma } from "@/lib/db";
 import { actionUser } from "@/lib/server/auth";
-import { fail, type ActionResult } from "@/lib/server/result";
+import { fail, STALE, type ActionResult } from "@/lib/server/result";
+import { audit } from "@/lib/server/audit";
 import { applyStageAction, createWorkOrder, updateWorkOrderLine, userMessage } from "@/lib/server/workOrders";
 import { readSheet } from "@/lib/server/excelRead";
 import { validateLine, validateWoInput } from "@/lib/domain/workOrder";
-import { dayKey } from "@/lib/domain/dates";
+import { dayKey, parseDay } from "@/lib/domain/dates";
 import { cleanText } from "@/lib/domain/master";
 
 export async function createWorkOrderAction(raw: { woNo: string; woDate: string; lines: Record<string, unknown>[] }): Promise<ActionResult<number[]>> {
@@ -107,4 +108,52 @@ export async function importWorkOrdersAction(form: FormData): Promise<ActionResu
     }
   }
   return { ok: true, message: `Imported ${inputs.length} orders, ${lines} lines.` };
+}
+
+/** Save the list's current filters under a name (one default per page). */
+export async function saveView(page: string, name: string, query: string, isDefault: boolean): Promise<ActionResult> {
+  const user = await actionUser("workOrders", "V");
+  if (typeof user === "string") return fail(user);
+  const n = name.trim().slice(0, 60);
+  if (!n) return fail("Give the view a name.");
+  if (!/^[a-z/-]{1,40}$/.test(page)) return fail("Unknown page.");
+  const q = query.replace(/^\?/, "").slice(0, 1000);
+  await prisma.$transaction(async (tx) => {
+    if (isDefault) await tx.savedView.updateMany({ where: { userId: user.id, page }, data: { isDefault: false } });
+    await tx.savedView.upsert({ where: { userId_page_name: { userId: user.id, page, name: n } }, create: { userId: user.id, page, name: n, query: q, isDefault }, update: { query: q, isDefault } });
+  });
+  return { ok: true, message: `View "${n}" saved.` };
+}
+
+export async function deleteView(id: number): Promise<ActionResult> {
+  const user = await actionUser("workOrders", "V");
+  if (typeof user === "string") return fail(user);
+  await prisma.savedView.deleteMany({ where: { id, userId: user.id } });
+  return { ok: true, message: "View removed." };
+}
+
+/** The Gantt: a bar dragged or stretched gives the order new start / due dates. */
+export async function rescheduleOrder(id: number, version: number, start: string, due: string): Promise<ActionResult> {
+  const user = await actionUser("workOrders", "E");
+  if (typeof user === "string") return fail(user);
+  const s = parseDay(start);
+  const d = parseDay(due);
+  if (!s || !d) return fail("The dates are not valid.");
+  if (d < s) return fail("The due date cannot be before the start date.");
+  try {
+    const err = await prisma.$transaction(async (tx) => {
+      const before = await tx.workOrder.findUnique({ where: { id } });
+      if (!before) return "The order no longer exists.";
+      if (before.status === "COMPLETED" || before.status === "CANCELLED") return "A closed order cannot be rescheduled.";
+      if (d < before.woDate) return "The due date cannot be before the WO date.";
+      const res = await tx.workOrder.updateMany({ where: { id, version }, data: { startDate: s, dueDate: d, version: { increment: 1 } } });
+      if (res.count !== 1) return STALE;
+      await audit(tx, user, "update", "WorkOrder", id, `Rescheduled ${before.woNo}-${before.lineNo}: ${dayKey(before.startDate)} → ${start}, due ${dayKey(before.dueDate)} → ${due}`, { startDate: before.startDate, dueDate: before.dueDate }, { startDate: s, dueDate: d });
+      return null;
+    });
+    if (err) return fail(err);
+  } catch (e) {
+    return fail(userMessage(e, "reschedule the order"));
+  }
+  return { ok: true, message: "Rescheduled." };
 }

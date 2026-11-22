@@ -14,7 +14,8 @@
     "db:migrate": "prisma migrate deploy",
     "db:reset": "prisma migrate reset --force",
     "seed": "tsx --conditions=react-server scripts/seed.ts",
-    "create-admin": "tsx --conditions=react-server scripts/create-admin.ts"
+    "create-admin": "tsx --conditions=react-server scripts/create-admin.ts",
+    "e2e": "node e2e/flows.cjs && node e2e/enterprise.cjs"
   },
   "prisma": {
     "seed": "tsx --conditions=react-server scripts/seed.ts"
@@ -27,6 +28,7 @@
     "lucide-react": "^1.77.0",
     "next": "^16.4.6",
     "prisma": "^6.19.3",
+    "qrcode": "^1.5.4",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "recharts": "^3.11.0",
@@ -36,6 +38,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

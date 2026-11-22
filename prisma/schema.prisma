@@ -502,3 +502,63 @@ model OvertimeRequest {
   @@index([status])
   @@index([date])
 }
+
+// ---------------------------------------------------------------- collaboration
+
+/// A note on a record (the chatter beside a work order). Mentions are
+/// written in the body as @[Name](userId) and notify that person.
+model Comment {
+  id        Int      @id @default(autoincrement())
+  entity    String
+  entityId  Int
+  userId    Int?
+  userName  String
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+}
+
+/// A file on a record (drawings, certificates, photos). Kept in the
+/// database so a backup of it is a backup of everything; 10 MB at most.
+model Attachment {
+  id           Int      @id @default(autoincrement())
+  entity       String
+  entityId     Int
+  fileName     String
+  mime         String
+  size         Int
+  data         Bytes
+  uploadedById Int?
+  uploadedBy   String
+  createdAt    DateTime @default(now())
+
+  @@index([entity, entityId])
+}
+
+/// What a person is told: a mention, a request to decide, an order at QC.
+model Notification {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  kind      String
+  title     String
+  body      String?
+  link      String
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+}
+
+/// A list's filters saved under a name, per person and page.
+model SavedView {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  page      String
+  name      String
+  query     String
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, page, name])
+}

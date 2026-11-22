@@ -1,86 +1,207 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  BarChart3, Boxes, ClipboardCheck, ClipboardList, Database, Factory, FileBarChart, Hammer, LogOut, Menu, Moon, PanelLeftClose, PanelLeftOpen, Settings, Sun, Timer, X,
-  type LucideIcon,
+  BarChart3, Bell, Boxes, CalendarDays, ChartGantt, CheckCheck, ChevronDown, ClipboardCheck, ClipboardList, Clock, Database, Factory, FileBarChart, Gauge, Hammer, History,
+  Home, Kanban, LayoutList, ListOrdered, LogOut, Menu, Moon, Plus, Search, Settings, Sun, Tablet, Truck, Users, BookOpen, X, type LucideIcon,
 } from "lucide-react";
-import { MODULE_LABEL, MODULE_PATH, moduleOfPath, type Module } from "@/lib/domain/access";
+import { locate, type IconName, type NavMenu } from "@/lib/nav";
 import { initials } from "@/lib/format";
 import { signOutAction } from "@/app/actions";
 
-const ICON: Record<Module, LucideIcon> = {
-  dashboard: BarChart3,
-  workOrders: ClipboardList,
-  planning: Factory,
-  workshop: Hammer,
-  quality: ClipboardCheck,
-  inventory: Boxes,
-  overtime: Timer,
-  reports: FileBarChart,
-  masterData: Database,
-  settings: Settings,
+export const ICONS: Record<IconName, LucideIcon> = {
+  home: Home, orders: ClipboardList, plus: Plus, board: Factory, queue: ListOrdered, calendar: CalendarDays, gauge: Gauge, bell: Bell, hammer: Hammer, history: History,
+  list: LayoutList, tablet: Tablet, check: ClipboardCheck, boxes: Boxes, truck: Truck, ledger: BookOpen, clock: Clock, chart: BarChart3, report: FileBarChart, db: Database,
+  users: Users, settings: Settings, kanban: Kanban, gantt: ChartGantt,
 };
 
-/** The sidebar asks questions of the plant, grouped as the documentation's modules are. */
-const GROUPS: { label: string; modules: Module[] }[] = [
-  { label: "Operations", modules: ["dashboard", "workOrders", "planning", "workshop", "quality", "inventory", "overtime"] },
-  { label: "Management", modules: ["reports"] },
-  { label: "Administration", modules: ["masterData", "settings"] },
-];
+export interface ShellUser { name: string; roleLabel: string; email: string }
 
-export interface ShellUser {
-  name: string;
-  roleLabel: string;
-  email: string;
+function useOutside(open: boolean, close: () => void) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const click = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && close();
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && close();
+    document.addEventListener("mousedown", click);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", click); document.removeEventListener("keydown", esc); };
+  }, [open, close]);
+  return ref;
 }
 
-function NavList({ visible, active, onPick }: { visible: Module[]; active: Module | null; onPick?: () => void }) {
+function MenuLinks({ menu, current, onPick }: { menu: NavMenu; current: string | null; onPick: () => void }) {
   return (
-    <nav className="side-nav no-scrollbar" aria-label="Main">
-      {GROUPS.map((g) => {
-        const mods = g.modules.filter((m) => visible.includes(m));
-        if (!mods.length) return null;
-        return (
-          <div key={g.label}>
-            <div className="side-label">{g.label}</div>
-            <ul className="side-list">
-              {mods.map((m) => {
-                const I = ICON[m];
-                const on = m === active;
-                return (
-                  <li key={m}>
-                    <Link href={MODULE_PATH[m]} className={`side-item ${on ? "side-item-on" : ""}`} aria-current={on ? "page" : undefined} title={MODULE_LABEL[m]} onClick={onPick}>
-                      <I size={19} className="side-icon" aria-hidden />
-                      <span className="side-text">{MODULE_LABEL[m]}</span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        );
-      })}
-    </nav>
+    <>
+      {menu.sections.map((s, i) => (
+        <div key={i}>
+          {i > 0 && <div className="dropdown-sep" />}
+          {s.label && <div className="dropdown-head">{s.label}</div>}
+          {s.links.map((l) => {
+            const I = ICONS[l.icon];
+            return (
+              <Link key={l.href} href={l.href} className={`dropdown-item ${current === l.href ? "on" : ""}`} onClick={onPick} role="menuitem">
+                <I size={16} className="di-icon" aria-hidden />
+                <span style={{ flex: 1 }}>{l.label}</span>
+                {l.hint && <span className="muted" style={{ fontSize: 11 }}>{l.hint}</span>}
+              </Link>
+            );
+          })}
+        </div>
+      ))}
+    </>
   );
 }
 
-function Brand({ company, logo }: { company: string; logo?: string }) {
+function AppMenu({ menu, on, current }: { menu: NavMenu; on: boolean; current: string | null }) {
+  const [open, setOpen] = useState(false);
+  const close = useCallback(() => setOpen(false), []);
+  const ref = useOutside(open, close);
   return (
-    <Link href="/" className="side-brand" aria-label={`${company} — home`}>
-      {logo ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={logo} alt="" className="side-mark" style={{ objectFit: "contain", background: "#fff", padding: 3 }} />
-      ) : (
-        <span className="side-mark" aria-hidden>LB</span>
+    <div ref={ref} style={{ position: "relative", height: "100%" }}>
+      <button type="button" className={`menu-btn ${on ? "on" : ""}`} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+        {menu.label} <ChevronDown size={14} aria-hidden style={{ opacity: 0.7 }} />
+      </button>
+      {open && <div className="dropdown" role="menu" style={{ top: "calc(100% + 4px)", insetInlineStart: 0, minWidth: 260 }}><MenuLinks menu={menu} current={current} onPick={close} /></div>}
+    </div>
+  );
+}
+
+type Note = { id: number; kind: string; title: string; body: string | null; link: string; read: boolean; at: string };
+
+function since(iso: string) {
+  const s = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (s < 60) return "now";
+  if (s < 3600) return `${Math.floor(s / 60)} min`;
+  if (s < 86400) return `${Math.floor(s / 3600)} h`;
+  return `${Math.floor(s / 86400)} d`;
+}
+
+function Bell_() {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [data, setData] = useState<{ unread: number; items: Note[] }>({ unread: 0, items: [] });
+  const close = useCallback(() => setOpen(false), []);
+  const ref = useOutside(open, close);
+  const load = useCallback(async () => {
+    try {
+      const r = await fetch("/api/notifications", { cache: "no-store" });
+      if (r.ok) setData(await r.json());
+    } catch {}
+  }, []);
+  useEffect(() => {
+    // the first fetch on mount; its setState runs after the response, not during the effect
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load();
+    const t = setInterval(load, 60_000);
+    const vis = () => document.visibilityState === "visible" && load();
+    document.addEventListener("visibilitychange", vis);
+    return () => { clearInterval(t); document.removeEventListener("visibilitychange", vis); };
+  }, [load]);
+  async function mark(body: object) {
+    await fetch("/api/notifications", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    load();
+  }
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button type="button" className="bar-btn" aria-label={`Notifications${data.unread ? `, ${data.unread} unread` : ""}`} aria-expanded={open} onClick={() => { setOpen((v) => !v); if (!open) load(); }}>
+        <Bell size={18} aria-hidden />
+        {data.unread > 0 && <span className="dot-count">{data.unread > 99 ? "99+" : data.unread}</span>}
+      </button>
+      {open && (
+        <div className="dropdown" style={{ top: 42, insetInlineEnd: 0, width: 380, maxWidth: "calc(100vw - 20px)", padding: 0 }}>
+          <div className="flex items-center justify-between" style={{ padding: "10px 12px", borderBottom: "1px solid var(--border)" }}>
+            <b>Notifications</b>
+            {data.unread > 0 && <button type="button" className="btn btn-ghost btn-sm" onClick={() => mark({ all: true })}><CheckCheck size={14} aria-hidden /> Mark all read</button>}
+          </div>
+          <div style={{ maxHeight: 420, overflowY: "auto", padding: 6 }}>
+            {!data.items.length && <p className="muted" style={{ textAlign: "center", padding: 24, margin: 0 }}>You are all caught up.</p>}
+            {data.items.map((n) => (
+              <button key={n.id} type="button" className="dropdown-item" style={{ whiteSpace: "normal", alignItems: "flex-start" }} onClick={() => { if (!n.read) mark({ id: n.id }); setOpen(false); router.push(n.link); }}>
+                <span style={{ width: 8, height: 8, marginTop: 6, borderRadius: 99, flex: "none", background: n.read ? "transparent" : "var(--brand)" }} aria-hidden />
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: "block", fontWeight: n.read ? 400 : 600, fontSize: 13 }}>{n.title}</span>
+                  {n.body && <span className="muted" style={{ display: "block", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis" }}>{n.body}</span>}
+                </span>
+                <span className="muted" style={{ fontSize: 11, flex: "none" }}>{since(n.at)}</span>
+              </button>
+            ))}
+          </div>
+        </div>
       )}
-      <span className="side-word">
-        <b>LOTFY BRONZE</b>
-        <span>CastFlow MES · since 1960</span>
-      </span>
-    </Link>
+    </div>
+  );
+}
+
+type Hit = { group: string; label: string; sub: string; href: string };
+
+/** Ctrl+K: records and pages from anywhere. */
+function Palette({ menus, onClose }: { menus: NavMenu[]; onClose: () => void }) {
+  const router = useRouter();
+  const [q, setQ] = useState("");
+  const [hits, setHits] = useState<Hit[]>([]);
+  const [active, setActive] = useState(0);
+  const pages: Hit[] = menus.flatMap((m) => m.sections.flatMap((s) => s.links.map((l) => ({ group: "Pages", label: l.label, sub: m.label, href: l.href }))));
+  const needle = q.trim().toLowerCase();
+  const pageHits = needle ? pages.filter((p) => p.label.toLowerCase().includes(needle) || p.sub.toLowerCase().includes(needle)).slice(0, 6) : pages.slice(0, 8);
+  const shownHits = needle.length >= 2 ? hits : [];
+  const all = [...shownHits, ...pageHits];
+
+  useEffect(() => {
+    if (needle.length < 2) return;
+    const ctl = new AbortController();
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/search?q=${encodeURIComponent(needle)}`, { signal: ctl.signal });
+        if (r.ok) { setHits((await r.json()).results); setActive(0); }
+      } catch {}
+    }, 160);
+    return () => { clearTimeout(t); ctl.abort(); };
+  }, [needle]);
+
+  const go = (h?: Hit) => { if (!h) return; onClose(); router.push(h.href); };
+  let lastGroup = "";
+  return (
+    <div className="palette-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="palette" role="dialog" aria-modal="true" aria-label="Search">
+        <div className="palette-input">
+          <Search size={18} className="muted" aria-hidden />
+          <input
+            autoFocus
+            value={q}
+            placeholder="Search work orders, materials, machines, pages…"
+            aria-label="Search"
+            onChange={(e) => { setQ(e.target.value); setActive(0); }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") onClose();
+              if (e.key === "ArrowDown") { e.preventDefault(); setActive((a) => Math.min(all.length - 1, a + 1)); }
+              if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => Math.max(0, a - 1)); }
+              if (e.key === "Enter") go(all[active]);
+            }}
+          />
+          <kbd>Esc</kbd>
+        </div>
+        <div className="palette-list" role="listbox">
+          {!all.length && <p className="muted" style={{ textAlign: "center", padding: 20, margin: 0 }}>Nothing matches “{q}”.</p>}
+          {all.map((h, i) => {
+            const head = h.group !== lastGroup ? h.group : null;
+            lastGroup = h.group;
+            return (
+              <div key={`${h.group}-${h.href}-${i}`}>
+                {head && <div className="dropdown-head">{head}</div>}
+                <button type="button" role="option" aria-selected={i === active} data-active={i === active ? "" : undefined} className="dropdown-item" onMouseEnter={() => setActive(i)} onClick={() => go(h)}>
+                  <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{h.label}</span>
+                  <span className="muted" style={{ fontSize: 12 }}>{h.sub}</span>
+                </button>
+              </div>
+            );
+          })}
+        </div>
+        <div className="palette-foot"><span><kbd>↑</kbd> <kbd>↓</kbd> move</span><span><kbd>Enter</kbd> open</span><span><kbd>Ctrl</kbd> <kbd>K</kbd> anywhere</span></div>
+      </div>
+    </div>
   );
 }
 
@@ -90,101 +211,122 @@ function toggleTheme() {
   try { localStorage.setItem("theme", next ? "dark" : "light"); } catch {}
 }
 
-export function AppShell({ user, visible, company, logo, children }: { user: ShellUser; visible: Module[]; company: string; logo?: string; children: ReactNode }) {
+/** The breadcrumb: menu / place; a record page adds its own name (components/Cpanel.tsx). */
+function Crumbs({ menus, pathname, search, company }: { menus: NavMenu[]; pathname: string; search: string; company: string }) {
+  const here = locate(menus, pathname, search);
+  return (
+    <nav className="crumbs" aria-label="Breadcrumb">
+      {here ? (
+        <>
+          <span className="muted hidden sm:inline">{here.menu.label}</span>
+          <span className="sep hidden sm:inline">/</span>
+          <span id="crumb-trail" className="contents"><h1 data-default-title>{here.link.label}</h1></span>
+        </>
+      ) : (
+        <span id="crumb-trail" className="contents"><h1 data-default-title>{pathname === "/" ? "My Work" : company}</h1></span>
+      )}
+    </nav>
+  );
+}
+
+/** The query names the place on a few pages (the reports): read it here, so the rest of the shell does not wait for it. */
+function CrumbsWithSearch(p: { menus: NavMenu[]; pathname: string; company: string }) {
+  return <Crumbs {...p} search={useSearchParams().toString()} />;
+}
+
+export function AppShell({ user, menus, company, logo, children }: { user: ShellUser; menus: NavMenu[]; company: string; logo?: string; children: ReactNode }) {
   const pathname = usePathname();
-  const active = moduleOfPath(pathname);
-  const [open, setOpen] = useState(false);
+  const here = locate(menus, pathname, "");
+  const [palette, setPalette] = useState(false);
   const [drawer, setDrawer] = useState(false);
-  const [menu, setMenu] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const [account, setAccount] = useState(false);
+  const closeAccount = useCallback(() => setAccount(false), []);
+  const accRef = useOutside(account, closeAccount);
 
   useEffect(() => {
-    if (!menu) return;
-    const close = (e: MouseEvent) => !menuRef.current?.contains(e.target as Node) && setMenu(false);
-    const esc = (e: KeyboardEvent) => e.key === "Escape" && setMenu(false);
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", esc);
-    return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", esc); };
-  }, [menu]);
-
-  function togglePin() {
-    const pinned = !document.documentElement.classList.contains("side-pinned");
-    document.documentElement.classList.toggle("side-pinned", pinned);
-    try { localStorage.setItem("side", pinned ? "pinned" : "mini"); } catch {}
-    setOpen(false);
-  }
-
-  // the strip opens over the page after a short rest of the pointer, so a pointer only crossing it opens nothing
-  const enter = () => { timer.current = setTimeout(() => setOpen(true), 160); };
-  const leave = () => { if (timer.current) clearTimeout(timer.current); setOpen(false); };
+    const k = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setPalette((v) => !v); }
+    };
+    document.addEventListener("keydown", k);
+    return () => document.removeEventListener("keydown", k);
+  }, []);
 
   return (
     <>
-      <aside className="app-side" data-open={open ? "" : undefined} onMouseEnter={enter} onMouseLeave={leave} onFocus={() => setOpen(true)} onBlur={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setOpen(false)}>
-        <Brand company={company} logo={logo} />
-        <NavList visible={visible} active={active} onPick={() => setOpen(false)} />
-        <div className="side-foot">
-          <button type="button" className="side-item w-full" onClick={togglePin} style={{ border: 0, background: "none", cursor: "pointer" }}>
-            <PanelLeftClose size={19} className="side-icon pin-on" aria-hidden />
-            <span className="side-text">Keep the menu open</span>
+      <header className="appbar no-print">
+        <button type="button" className="bar-btn lg:hidden" onClick={() => setDrawer(true)} aria-label="Open the menu"><Menu size={20} /></button>
+        <Link href="/" className="appbar-brand" aria-label={`${company} — my work`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {logo ? <img src={logo} alt="" className="brand-mark" style={{ objectFit: "contain", background: "#fff", padding: 2 }} /> : <span className="brand-mark" aria-hidden>LB</span>}
+          <span className="brand-word hidden sm:inline">LOTFY BRONZE</span>
+        </Link>
+        <nav className="appbar-nav no-scrollbar hidden lg:flex" aria-label="Main">
+          <Link href="/" className={`menu-btn ${pathname === "/" ? "on" : ""}`}>My Work</Link>
+          {menus.map((m) => <AppMenu key={m.key} menu={m} on={here?.menu.key === m.key} current={here?.link.href ?? null} />)}
+        </nav>
+        <div className="appbar-tools">
+          <button type="button" className="bar-search hidden md:flex" onClick={() => setPalette(true)} aria-label="Search (Ctrl+K)">
+            <Search size={15} aria-hidden /> Search <kbd>Ctrl K</kbd>
           </button>
+          <button type="button" className="bar-btn md:hidden" onClick={() => setPalette(true)} aria-label="Search"><Search size={18} /></button>
+          <Bell_ />
+          <button type="button" className="bar-btn" onClick={toggleTheme} title="Light / dark" aria-label="Toggle dark mode">
+            <Moon size={18} className="dark:hidden" aria-hidden />
+            <Sun size={18} className="hidden dark:block" aria-hidden />
+          </button>
+          <div ref={accRef} style={{ position: "relative", marginInlineStart: 4 }}>
+            <button type="button" className="bar-btn" style={{ width: "auto", padding: "0 4px" }} onClick={() => setAccount((v) => !v)} aria-haspopup="menu" aria-expanded={account} aria-label="Account">
+              <span className="avatar">{initials(user.name)}</span>
+            </button>
+            {account && (
+              <div role="menu" className="dropdown" style={{ insetInlineEnd: 0, top: 42, width: 250 }}>
+                <div style={{ padding: "8px 10px 10px", borderBottom: "1px solid var(--border)", marginBottom: 6 }}>
+                  <div style={{ fontWeight: 600 }}>{user.name}</div>
+                  <div className="muted" style={{ fontSize: 12 }}>{user.roleLabel}</div>
+                  <div className="muted" style={{ fontSize: 12, wordBreak: "break-all" }}>{user.email}</div>
+                </div>
+                <form action={signOutAction}>
+                  <button type="submit" role="menuitem" className="dropdown-item"><LogOut size={16} className="di-icon" aria-hidden /> Sign out</button>
+                </form>
+              </div>
+            )}
+          </div>
         </div>
-      </aside>
+      </header>
+
+      <div className="cpanel no-print">
+        <div className="cpanel-row">
+          <Suspense fallback={<Crumbs menus={menus} pathname={pathname} search="" company={company} />}>
+            <CrumbsWithSearch menus={menus} pathname={pathname} company={company} />
+          </Suspense>
+          <div id="cpanel-actions" className="flex flex-wrap items-center gap-2" style={{ marginInlineStart: "auto" }} />
+        </div>
+      </div>
 
       {drawer && (
         <>
           <div className="drawer-back" onClick={() => setDrawer(false)} />
           <div className="drawer" role="dialog" aria-modal="true" aria-label="Menu">
-            <div className="flex items-center justify-between" style={{ borderBottom: "1px solid var(--nav-border)" }}>
-              <Brand company={company} logo={logo} />
-              <button type="button" className="icon-btn" style={{ color: "var(--nav-fg)", marginInlineEnd: 8 }} onClick={() => setDrawer(false)} aria-label="Close the menu"><X size={20} /></button>
+            <div className="flex items-center justify-between" style={{ padding: "10px 12px", background: "var(--bar-bg)" }}>
+              <span className="flex items-center gap-2"><span className="brand-mark" aria-hidden>LB</span><span className="brand-word">LOTFY BRONZE</span></span>
+              <button type="button" className="bar-btn" onClick={() => setDrawer(false)} aria-label="Close the menu"><X size={20} /></button>
             </div>
-            <NavList visible={visible} active={active} onPick={() => setDrawer(false)} />
+            <div style={{ padding: 8 }}>
+              <Link href="/" className={`dropdown-item ${pathname === "/" ? "on" : ""}`} onClick={() => setDrawer(false)}><Home size={16} className="di-icon" aria-hidden /> My Work</Link>
+              {menus.map((m) => (
+                <div key={m.key} style={{ marginTop: 6 }}>
+                  <div className="dropdown-head" style={{ color: "var(--foreground)" }}>{m.label}</div>
+                  <MenuLinks menu={m} current={here?.link.href ?? null} onPick={() => setDrawer(false)} />
+                </div>
+              ))}
+            </div>
           </div>
         </>
       )}
 
-      <div className="app-body">
-        <header className="app-top no-print">
-          <button type="button" className="icon-btn lg:hidden" onClick={() => setDrawer(true)} aria-label="Open the menu"><Menu size={20} /></button>
-          <div className="top-title">
-            <h1>{active ? MODULE_LABEL[active] : company}</h1>
-          </div>
-          <div className="flex items-center gap-1" style={{ marginInlineStart: "auto" }}>
-            <button type="button" className="icon-btn hidden lg:inline-grid" onClick={togglePin} title="Keep the menu open / fold it" aria-label="Keep the menu open or fold it">
-              <PanelLeftOpen size={18} aria-hidden />
-            </button>
-            <button type="button" className="icon-btn" onClick={toggleTheme} title="Light / dark" aria-label="Toggle dark mode">
-              <Moon size={18} className="dark:hidden" aria-hidden />
-              <Sun size={18} className="hidden dark:block" aria-hidden />
-            </button>
-            <div className="relative" ref={menuRef}>
-              <button type="button" className="flex items-center gap-2" style={{ background: "none", border: 0, cursor: "pointer", padding: 2 }} onClick={() => setMenu((v) => !v)} aria-haspopup="menu" aria-expanded={menu} aria-label="Account">
-                <span className="avatar">{initials(user.name)}</span>
-                <span className="hidden md:flex flex-col items-start" style={{ lineHeight: 1.15 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600 }}>{user.name}</span>
-                  <span className="muted" style={{ fontSize: 11 }}>{user.roleLabel}</span>
-                </span>
-              </button>
-              {menu && (
-                <div role="menu" className="card absolute" style={{ insetInlineEnd: 0, top: 44, width: 240, padding: 6, zIndex: 50, boxShadow: "var(--shadow-lg)" }}>
-                  <div style={{ padding: "8px 10px 10px", borderBottom: "1px solid var(--border)", marginBottom: 6 }}>
-                    <div style={{ fontWeight: 700 }}>{user.name}</div>
-                    <div className="muted" style={{ fontSize: 12, wordBreak: "break-all" }}>{user.email}</div>
-                  </div>
-                  <form action={signOutAction}>
-                    <button type="submit" role="menuitem" className="btn btn-ghost w-full" style={{ justifyContent: "flex-start" }}>
-                      <LogOut size={16} aria-hidden /> Sign out
-                    </button>
-                  </form>
-                </div>
-              )}
-            </div>
-          </div>
-        </header>
-        <main className="page" id="main">{children}</main>
-      </div>
+      {palette && <Palette menus={menus} onClose={() => setPalette(false)} />}
+
+      <main className="page" id="main">{children}</main>
     </>
   );
 }

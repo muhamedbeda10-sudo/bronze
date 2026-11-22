@@ -3,6 +3,7 @@ import { prisma, type Tx } from "@/lib/db";
 import { audit } from "./audit";
 import type { SessionUser } from "./auth";
 import { getSettings } from "./settings";
+import { notifyRole } from "./notify";
 import { STALE } from "./result";
 import { calcWeights, dimensionText, fullName } from "@/lib/domain/weight";
 import { ACTION_LABEL, stageNameAt, transition, type StageAction, type WoState } from "@/lib/domain/routing";
@@ -195,6 +196,17 @@ export async function applyStageAction(id: number, version: number, action: Stag
         },
       });
       await tx.stockMove.create({ data: { stockRowId: row.id, delta: wo.qty, reason: "WO_COMPLETE", ref: `${wo.woNo}-${wo.lineNo}`, userName: user.name } });
+    }
+    const code = `${wo.woNo}-${wo.lineNo}`;
+    const link = `/work-orders/${id}`;
+    if (t.state.status === "UNDER_INSPECTION" && wo.status !== "UNDER_INSPECTION") {
+      await notifyRole(tx, "quality", "F", { kind: "inspection", title: `${code} is waiting for inspection`, body: `${toStage} · qty ${wo.qty}`, link: "/quality" }, user.id);
+    }
+    if (action === "QC_REJECT_LAST" || action === "QC_REJECT_START") {
+      await notifyRole(tx, "planning", "F", { kind: "rejection", title: `${code} rejected at ${fromStage} — back to ${toStage}`, body: opts.note ?? null, link }, user.id);
+    }
+    if (t.completed) {
+      await notifyRole(tx, "planning", "F", { kind: "completed", title: `${code} is complete — ${wo.qty} pcs into FG stock`, link }, user.id);
     }
     await audit(tx, user, "stage", "WorkOrder", id, `${wo.woNo}-${wo.lineNo}: ${ACTION_LABEL[action]}${fromStage ? ` (${fromStage} → ${toStage ?? "—"})` : ""}`, { status: wo.status, stage: fromStage }, { status: t.state.status, stage: toStage });
     return { completed: t.completed, toStatus: t.state.status };
