@@ -1,0 +1,504 @@
+// Lotfy Bronze ERP — CastFlow MES data model.
+// The production flow: master data → work order (weights calculated) →
+// its route copied onto the order (WorkOrderStage) → stage moves (StageMove)
+// → workshop activity logs → quality inspections → finished-goods stock.
+// Every change a person makes is written to AuditLog by the app, in the same
+// transaction as the change itself.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------- people
+
+model User {
+  id           Int       @id @default(autoincrement())
+  email        String    @unique
+  name         String
+  passwordHash String
+  /// One of ROLES in lib/domain/access.ts — a preset of the access below.
+  role         String    @default("USER")
+  /// { module: "F" | "E" | "V" } — what this account sees and can change (lib/domain/access.ts).
+  access       Json      @default("{}")
+  position     String?
+  department   String?
+  /// A workshop supervisor records for this workshop only.
+  workshopId   Int?
+  workshop     Workshop? @relation(fields: [workshopId], references: [id], onDelete: SetNull)
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  sessions Session[]
+}
+
+model Session {
+  /// sha256 of the cookie's token — the token itself is never stored
+  id        String   @id
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+/// Company profile and the plant's settings, one row per key (lib/domain/settings.ts).
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id       Int      @id @default(autoincrement())
+  at       DateTime @default(now())
+  userId   Int?
+  userName String
+  /// create | update | delete | import | stage | approve | reject | issue | login …
+  action   String
+  entity   String
+  entityId String?
+  summary  String
+  before   Json?
+  after    Json?
+
+  @@index([entity, entityId])
+  @@index([at])
+}
+
+// ---------------------------------------------------------------- master data
+
+model Material {
+  id               Int      @id @default(autoincrement())
+  code             String   @unique
+  name             String
+  family           String?
+  /// g/cm³ — the weight formula uses each material's own density
+  density          Float    @default(8.8)
+  composition      String?
+  scrapPct         Float    @default(0)
+  defaultProcessId Int?
+  defaultProcess   Process? @relation(fields: [defaultProcessId], references: [id], onDelete: SetNull)
+  status           String   @default("Active")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  workOrders WorkOrder[]
+  stock      StockRow[]
+  issues     IssueRequest[]
+}
+
+model Product {
+  id                  Int      @id @default(autoincrement())
+  /// Bushings, Bars, Plates, Impellers, Custom …
+  name                String   @unique
+  /// OD_ID_L | W_L_H | IMPELLER | CUSTOM (lib/domain/weight.ts)
+  dimensionFormat     String   @default("OD_ID_L")
+  compatibleProcesses String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  workOrders WorkOrder[]
+  molds      Mold[]
+  stock      StockRow[]
+}
+
+model Workshop {
+  id         Int      @id @default(autoincrement())
+  code       String   @unique
+  name       String
+  stageName  String?
+  supervisor String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  machines   Machine[]
+  operators  Operator[]
+  stages     RouteStage[]
+  woStages   WorkOrderStage[]
+  activities Activity[]
+  users      User[]
+  issues     IssueRequest[]
+  overtime   OvertimeRequest[]
+  stock      StockRow[]
+}
+
+model Process {
+  id                 Int      @id @default(autoincrement())
+  code               String   @unique
+  name               String
+  description        String?
+  /// the route this process follows (RouteStage.routeCode)
+  routeCode          String
+  compatibleProducts String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  materials  Material[]
+  molds      Mold[]
+  workOrders WorkOrder[]
+}
+
+/// One stage of a route. A route is the stages sharing a routeCode, in stageNo
+/// order; the last one ends it — there is no "next stage" to mistype.
+model RouteStage {
+  id                Int       @id @default(autoincrement())
+  routeCode         String
+  stageNo           Int
+  name              String
+  workshopId        Int?
+  workshop          Workshop? @relation(fields: [workshopId], references: [id], onDelete: SetNull)
+  /// standard minutes per piece
+  stdTimeMin        Float     @default(0)
+  operatorsRequired Int       @default(1)
+  qcRequired        Boolean   @default(false)
+  /// Unskilled | Semi-Skilled | Skilled
+  skillLevel        String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([routeCode, stageNo])
+}
+
+model Machine {
+  id                Int       @id @default(autoincrement())
+  code              String    @unique
+  workshopId        Int
+  workshop          Workshop  @relation(fields: [workshopId], references: [id], onDelete: Restrict)
+  name              String
+  number            String?
+  type              String?
+  /// e.g. kg/hr or pcs/hr
+  productionRate    Float?
+  rateUnit          String?
+  capacity          Float?
+  defaultOperatorId Int?
+  defaultOperator   Operator? @relation(fields: [defaultOperatorId], references: [id], onDelete: SetNull)
+  setupMin          Float?
+  changeoverMin     Float?
+  maintIntervalDays Int?
+  /// Active | Under Maintenance | Inactive
+  status            String    @default("Active")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  activities Activity[]
+}
+
+model Mold {
+  id             Int      @id @default(autoincrement())
+  moldNo         String   @unique
+  processId      Int?
+  process        Process? @relation(fields: [processId], references: [id], onDelete: SetNull)
+  productId      Int?
+  product        Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  description    String?
+  diaMin         Float?
+  diaMax         Float?
+  lenMin         Float?
+  lenMax         Float?
+  processTimeMin Float?
+  type           String?
+  usageCount     Int      @default(0)
+  maintCycle     Int?
+  /// approx. weight of one piece cast in it (kg) — the mold-based weight
+  approxWeightKg Float?
+  available      Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  workOrders WorkOrder[]
+}
+
+model Operator {
+  id         Int       @id @default(autoincrement())
+  code       String    @unique
+  name       String
+  workshopId Int?
+  workshop   Workshop? @relation(fields: [workshopId], references: [id], onDelete: SetNull)
+  skillLevel String?
+  active     Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  machines   Machine[]
+  activities Activity[]
+  overtime   OvertimeRequest[]
+}
+
+model RejectionReason {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  activities  Activity[]
+  inspections Inspection[]
+}
+
+// ---------------------------------------------------------------- work orders
+
+model WorkOrder {
+  id             Int       @id @default(autoincrement())
+  /// the customer or internal order number; one line of it is `${woNo}-${lineNo}`
+  woNo           String
+  lineNo         Int
+  lineCount      Int
+  woDate         DateTime  @db.Date
+  productId      Int
+  product        Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
+  materialId     Int
+  material       Material  @relation(fields: [materialId], references: [id], onDelete: Restrict)
+  processId      Int
+  process        Process   @relation(fields: [processId], references: [id], onDelete: Restrict)
+  /// mm — OD / ID / Length, or W / L / H for a plate (lib/domain/weight.ts)
+  od             Float?
+  innerDia       Float?
+  length         Float?
+  width          Float?
+  height         Float?
+  qty            Int
+  moldId         Int?
+  mold           Mold?     @relation(fields: [moldId], references: [id], onDelete: SetNull)
+  /// 1 Normal · 2 High · 3 Urgent
+  priority       Int       @default(1)
+  startDate      DateTime? @db.Date
+  atpDate        DateTime? @db.Date
+  dueDate        DateTime? @db.Date
+  deliveryDate   DateTime? @db.Date
+  dimensionNotes String?
+  commentNotes   String?
+  /// weights worked out when the order was saved (kg)
+  densityUsed    Float
+  unitWeightKg   Float?
+  totalWeightKg  Float?
+  rawReqKg       Float?
+  moldWeightKg   Float?
+  actualWeightKg Float?
+  fullName       String
+  /// PLANNED … CANCELLED (lib/domain/status.ts)
+  status         String    @default("PLANNED")
+  /// index into the order's own stages; null before release
+  stageIndex     Int?
+  /// WAITING (at the stage, not started) | IN_PROGRESS
+  stageState     String?
+  /// what to return to after a hold
+  heldFrom       String?
+  qualityStatus  String?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  /// optimistic concurrency: every change bumps it, a stale screen is refused
+  version        Int       @default(0)
+  createdById    Int?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  stages      WorkOrderStage[]
+  moves       StageMove[]
+  activities  Activity[]
+  inspections Inspection[]
+  issues      IssueRequest[]
+  stock       StockRow[]
+
+  @@unique([woNo, lineNo])
+  @@index([status])
+  @@index([dueDate])
+  @@index([woDate])
+}
+
+/// The route as it was when the order was saved: editing a route later does
+/// not move orders already on the floor.
+model WorkOrderStage {
+  id          Int       @id @default(autoincrement())
+  workOrderId Int
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  seq         Int
+  name        String
+  workshopId  Int?
+  workshop    Workshop? @relation(fields: [workshopId], references: [id], onDelete: SetNull)
+  stdTimeMin  Float     @default(0)
+  qcRequired  Boolean   @default(false)
+
+  @@unique([workOrderId, seq])
+}
+
+model StageMove {
+  id          Int       @id @default(autoincrement())
+  workOrderId Int
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  at          DateTime  @default(now())
+  userId      Int?
+  userName    String
+  /// START | NEXT | PREV | REWORK | HOLD | RESUME | QC_PASS | QC_REJECT_LAST | QC_REJECT_START | COMPLETE | CANCEL
+  action      String
+  fromStage   String?
+  toStage     String?
+  fromStatus  String
+  toStatus    String
+  note        String?
+
+  @@index([workOrderId])
+  @@index([at])
+}
+
+// ---------------------------------------------------------------- shop floor
+
+model Activity {
+  id                Int              @id @default(autoincrement())
+  date              DateTime         @db.Date
+  workshopId        Int
+  workshop          Workshop         @relation(fields: [workshopId], references: [id], onDelete: Restrict)
+  machineId         Int?
+  machine           Machine?         @relation(fields: [machineId], references: [id], onDelete: SetNull)
+  /// DAY | NIGHT
+  shift             String
+  operatorId        Int?
+  operator          Operator?        @relation(fields: [operatorId], references: [id], onDelete: SetNull)
+  supervisor        String?
+  priority          Int              @default(1)
+  /// null = maintenance / setup time
+  workOrderId       Int?
+  workOrder         WorkOrder?       @relation(fields: [workOrderId], references: [id], onDelete: SetNull)
+  stageName         String?
+  /// UNDER_PROCESS | COMPLETE | ON_HOLD | REJECTED
+  taskStatus        String
+  startTime         String
+  endTime           String
+  durationHrs       Float
+  qtyProduced       Float            @default(0)
+  qtyScrap          Float            @default(0)
+  rejectionReasonId Int?
+  rejectionReason   RejectionReason? @relation(fields: [rejectionReasonId], references: [id], onDelete: SetNull)
+  notes             String?
+  createdById       Int?
+  createdByName     String
+  createdAt         DateTime         @default(now())
+
+  @@index([date])
+  @@index([workshopId])
+  @@index([workOrderId])
+}
+
+model Inspection {
+  id                Int              @id @default(autoincrement())
+  workOrderId       Int
+  workOrder         WorkOrder        @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  stageName         String
+  at                DateTime         @default(now())
+  /// PASS | REJECT_LAST | REJECT_START
+  result            String
+  qtyInspected      Int
+  qtyRejected       Int              @default(0)
+  rejectionReasonId Int?
+  rejectionReason   RejectionReason? @relation(fields: [rejectionReasonId], references: [id], onDelete: SetNull)
+  inspectorId       Int?
+  inspectorName     String
+  notes             String?
+
+  @@index([workOrderId])
+  @@index([at])
+}
+
+// ---------------------------------------------------------------- inventory
+
+/// One stock line. kind: RAW (alloy, kg) | FG (finished castings, pcs) |
+/// WIP (semi-finished parts, pcs) | WIP_RAW (metal issued to the floor, kg).
+/// Available = totalQty − reservedQty.
+model StockRow {
+  id           Int        @id @default(autoincrement())
+  kind         String
+  materialId   Int?
+  material     Material?  @relation(fields: [materialId], references: [id], onDelete: Restrict)
+  productId    Int?
+  product      Product?   @relation(fields: [productId], references: [id], onDelete: SetNull)
+  workOrderId  Int?
+  workOrder    WorkOrder? @relation(fields: [workOrderId], references: [id], onDelete: SetNull)
+  workshopId   Int?
+  workshop     Workshop?  @relation(fields: [workshopId], references: [id], onDelete: SetNull)
+  description  String?
+  od           Float?
+  innerDia     Float?
+  length       Float?
+  unit         String     @default("kg")
+  totalQty     Float      @default(0)
+  reservedQty  Float      @default(0)
+  reservedNote String?
+  version      Int        @default(0)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  moves StockMove[]
+
+  @@index([kind])
+}
+
+/// The stock ledger: every change of a stock line's quantity, and why.
+model StockMove {
+  id         Int      @id @default(autoincrement())
+  stockRowId Int
+  stockRow   StockRow @relation(fields: [stockRowId], references: [id], onDelete: Cascade)
+  at         DateTime @default(now())
+  delta      Float
+  /// ADD | EDIT | ISSUE | RECEIVE_WIP_RAW | WO_COMPLETE | IMPORT | DELETE
+  reason     String
+  ref        String?
+  userName   String
+}
+
+model IssueRequest {
+  id            Int        @id @default(autoincrement())
+  reqNo         String     @unique
+  date          DateTime   @db.Date
+  materialId    Int
+  material      Material   @relation(fields: [materialId], references: [id], onDelete: Restrict)
+  qtyKg         Float
+  workshopId    Int
+  workshop      Workshop   @relation(fields: [workshopId], references: [id], onDelete: Restrict)
+  workOrderId   Int?
+  workOrder     WorkOrder? @relation(fields: [workOrderId], references: [id], onDelete: SetNull)
+  /// PENDING | ISSUED | REJECTED
+  status        String     @default("PENDING")
+  note          String?
+  requestedById Int?
+  requestedBy   String
+  processedBy   String?
+  processedAt   DateTime?
+  createdAt     DateTime   @default(now())
+
+  @@index([status])
+}
+
+// ---------------------------------------------------------------- overtime
+
+model OvertimeRequest {
+  id            Int       @id @default(autoincrement())
+  date          DateTime  @db.Date
+  operatorId    Int
+  operator      Operator  @relation(fields: [operatorId], references: [id], onDelete: Restrict)
+  workshopId    Int
+  workshop      Workshop  @relation(fields: [workshopId], references: [id], onDelete: Restrict)
+  fromTime      String
+  toTime        String
+  hours         Float
+  reason        String
+  /// PENDING | APPROVED | REJECTED
+  status        String    @default("PENDING")
+  requestedById Int?
+  requestedBy   String
+  processedById Int?
+  processedBy   String?
+  processedAt   DateTime?
+  decisionNote  String?
+  createdAt     DateTime  @default(now())
+
+  @@index([status])
+  @@index([date])
+}

@@ -1,0 +1,46 @@
+name: CI
+
+# Every push and pull request: types, lint, the unit suite (the weight
+# formula, the stage moves, the KPIs…), and a production build against a
+# throw-away PostgreSQL with the migrations applied.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: bronze
+          POSTGRES_PASSWORD: bronze
+          POSTGRES_DB: bronze
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U bronze" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://bronze:bronze@localhost:5432/bronze?schema=public
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma migrate deploy
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test:run
+      - run: npm run build
+      - name: Seed runs on a fresh database
+        run: npm run seed
+        env:
+          ADMIN_PASSWORD: ci-password-123

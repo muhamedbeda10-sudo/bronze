@@ -1,0 +1,64 @@
+# Lotfy Bronze ERP — CastFlow MES
+
+نظام إدارة التصنيع لمسبك لطفي برونز: أوامر الشغل، مسارات الإنتاج، تنفيذ الورش، الجودة، المخزون والأوفرتايم.
+
+The foundry's web app: every casting order from entry, through each workshop on its route (pattern, molding, melting & pouring, fettling, machining), through quality inspection, into finished-goods stock.
+It implements the live MES scope of *Lotfy Bronze ERP — System Documentation* (§1–§14, §18), with the data issues of §14 fixed by design.
+English UI; Arabic names are welcome in the data.
+
+## Stack
+Next.js 16 (App Router, server actions) · TypeScript · Tailwind v4 · Prisma + PostgreSQL · exceljs · Recharts · Vitest.
+Same house rules as Production-Control: pure, tested logic in `lib/domain/`, database access in `lib/server/`, one look across every screen (`app/globals.css`).
+
+## Setup
+```bash
+npm install                     # .npmrc sets legacy-peer-deps
+cp .env.example .env            # DATABASE_URL of a PostgreSQL of your own
+npx prisma migrate deploy       # create the tables
+npm run seed                    # demo master data, orders, logs, stock, users
+npm run dev                     # http://localhost:3000
+npm run test:run                # unit tests
+```
+`npm run seed` refuses a database that already holds orders; `npm run seed -- --force` wipes it first (development only).
+Sign in as `ADMIN_EMAIL` / `ADMIN_PASSWORD`. Demo users (same password): `gm@`, `planner@`, `melting@` (supervisor of Melting & Pouring), `qc@`, `store@`, `tech@lotfybronze.com`.
+
+On a real database create the first admin with:
+```bash
+ADMIN_EMAIL=you@lotfybronze.com ADMIN_PASSWORD='…' npm run create-admin
+```
+
+## Deploy
+`Dockerfile` builds one image; the container applies the migrations when it starts (`scripts/docker-start.sh`) and answers on port 3000.
+Needs `DATABASE_URL` at runtime. Behind plain http (no TLS) set `INSECURE_COOKIES=1`, otherwise leave it unset.
+CI (`.github/workflows/ci.yml`): types, lint, unit tests, build and seed against a throw-away PostgreSQL.
+
+## Modules
+| Module | Path | Feature doc |
+|---|---|---|
+| Dashboard | `/` | [dashboard](docs/features/dashboard.md) |
+| Master Data | `/master/*` | [master-data](docs/features/master-data.md) |
+| Work Orders | `/work-orders` | [work-orders](docs/features/work-orders.md) |
+| Production Planning | `/planning` | [planning](docs/features/planning.md) |
+| Workshop Execution | `/workshop` | [workshop](docs/features/workshop.md) |
+| Quality Control | `/quality` | [quality](docs/features/quality.md) |
+| Inventory | `/inventory/*` | [inventory](docs/features/inventory.md) |
+| Overtime | `/overtime` | [overtime](docs/features/overtime.md) |
+| Reporting | `/reports` | [reports](docs/features/reports.md) |
+| Settings | `/settings` | [settings](docs/features/settings.md) |
+
+Design and layout: [docs/design.md](docs/design.md) · Code layout: [docs/layout.md](docs/layout.md).
+
+## Fixed from the documentation's review (§14)
+- **Density**: the weight uses each material's own density (8.8 only when a material has none).
+- **Duplicate IDs**: workshop, machine, material, process, mold, operator and reason codes are unique (database constraint), upper-cased on entry.
+- **Stray characters / spelling**: names are trimmed of stray separators (`Shakeout & Fettling|` → `Shakeout & Fettling`); the seed uses *Turning*, *Mold Prepare*.
+- **Units**: stock units are fixed per list (kg / pcs) — never typed.
+- **Routing**: a route is its stages in order; the last one ends it — there is no "Next Stage = END" to mistype. Orders keep a copy of the route they were saved with.
+- **Browser tab**: *Lotfy Bronze — CastFlow MES*.
+- **Capacity**: built (load vs machine hours per workshop).
+
+## Not built yet (on purpose or for later phases)
+- Sales & Customers (§15), HR & Payroll (§16) and the full Inventory & Warehouse module (§9.2: GRN, heat numbers, valuation) — the next phases of §19.
+- Google sign-in (email + password only for now).
+- Gantt chart.
+- *Delete All History* — left out: history is the audit trail; cancel orders instead.

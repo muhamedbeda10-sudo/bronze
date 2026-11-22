@@ -1,0 +1,47 @@
+{
+  "name": "lotfy-bronze-erp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lotfy Bronze ERP — CastFlow MES: casting work orders, routing, workshop execution, quality, inventory and overtime.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "db:migrate": "prisma migrate deploy",
+    "db:reset": "prisma migrate reset --force",
+    "seed": "tsx --conditions=react-server scripts/seed.ts",
+    "create-admin": "tsx --conditions=react-server scripts/create-admin.ts"
+  },
+  "prisma": {
+    "seed": "tsx --conditions=react-server scripts/seed.ts"
+  },
+  "dependencies": {
+    "@fontsource/forum": "^5.3.0",
+    "@fontsource/roboto": "^5.3.0",
+    "@prisma/client": "^6.19.3",
+    "exceljs": "^4.4.0",
+    "lucide-react": "^1.77.0",
+    "next": "^16.4.6",
+    "prisma": "^6.19.3",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "recharts": "^3.11.0",
+    "server-only": "^0.0.1",
+    "tsx": "^4.23.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.6",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "vitest": "^4.1.12"
+  }
+}
