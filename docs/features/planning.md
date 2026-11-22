@@ -1,5 +1,7 @@
 # Production Planning
 
+An app of its own on the home screen (its tile counts the orders ready to release); its pages are on its bar.
+
 **Work Order Execution:** a card per order — its full name, process, current stage and workshop, due date, and its route as numbered stages (done ✓, current in bronze, QC stages dashed).
 Filters: workshop, WO no, stage, All / Not Complete / Complete.
 Buttons (full planning access): Start Stage, Next Stage, Prev Stage, Rework (with a reason); under More… put on hold, waiting material, waiting technical office, resume.

@@ -10,7 +10,7 @@ export type IconName =
   | "home" | "orders" | "plus" | "board" | "queue" | "calendar" | "gauge" | "bell" | "hammer" | "history" | "list" | "tablet"
   | "check" | "boxes" | "truck" | "ledger" | "clock" | "chart" | "report" | "db" | "users" | "settings" | "kanban" | "gantt";
 
-export type AppKey = "mywork" | "manufacturing" | "shopfloor" | "kiosk" | "quality" | "inventory" | "overtime" | "reporting" | "masterdata" | "settings";
+export type AppKey = "mywork" | "manufacturing" | "planning" | "shopfloor" | "kiosk" | "quality" | "inventory" | "overtime" | "reporting" | "masterdata" | "settings";
 
 export interface NavLink { href: string; label: string; module: Module | null; level?: Level; icon: IconName; hint?: string }
 /** A section with a label is a dropdown in the bar; one without puts its links on the bar itself. */
@@ -27,22 +27,26 @@ export const APPS: AppDef[] = [
   {
     key: "manufacturing",
     label: "Manufacturing",
-    desc: "Work orders and production planning",
+    desc: "Work orders: list, Kanban, Gantt",
     home: "/work-orders",
-    sections: [
-      { label: "Work Orders", links: [
-        L("/work-orders", "Work Orders", "workOrders", "orders", undefined, "List, Kanban, Gantt"),
-        L("/work-orders/new", "New Work Order", "workOrders", "plus", "E"),
-        L("/work-orders/history", "Work Order History", "workOrders", "history"),
-      ] },
-      { label: "Planning", links: [
-        L("/planning", "Execution Board", "planning", "board"),
-        L("/planning/workshop", "Queue by Stage", "planning", "queue"),
-        L("/planning/weekly", "Weekly Plan", "planning", "calendar"),
-        L("/planning/capacity", "Capacity", "planning", "gauge"),
-        L("/planning/notifications", "Planning Notifications", "planning", "bell"),
-      ] },
-    ],
+    sections: [{ links: [
+      L("/work-orders", "Work Orders", "workOrders", "orders", undefined, "List, Kanban, Gantt"),
+      L("/work-orders/new", "New Work Order", "workOrders", "plus", "E"),
+      L("/work-orders/history", "Work Order History", "workOrders", "history"),
+    ] }],
+  },
+  {
+    key: "planning",
+    label: "Planning",
+    desc: "Move orders stage by stage, the week's plan and capacity",
+    home: "/planning",
+    sections: [{ links: [
+      L("/planning", "Execution Board", "planning", "board"),
+      L("/planning/workshop", "Queue by Stage", "planning", "queue"),
+      L("/planning/weekly", "Weekly Plan", "planning", "calendar"),
+      L("/planning/capacity", "Capacity", "planning", "gauge"),
+      L("/planning/notifications", "Notifications", "planning", "bell"),
+    ] }],
   },
   {
     key: "shopfloor",

@@ -42,6 +42,19 @@ function Glyph({ app }: { app: AppKey }) {
           <rect x="32" y="31" width="6" height="5" rx="1" fill={C.yellow} />
         </>
       );
+    case "planning":
+      return (
+        <>
+          <rect x="5" y="8" width="38" height="34" rx="5" fill={C.navy} />
+          <rect x="5" y="8" width="38" height="9" rx="5" fill={C.red} />
+          <rect x="5" y="13" width="38" height="4" fill={C.red} />
+          <rect x="12" y="4" width="4" height="9" rx="2" fill={C.grey} />
+          <rect x="32" y="4" width="4" height="9" rx="2" fill={C.grey} />
+          <rect x="10" y="21" width="16" height="5" rx="2.5" fill={C.yellow} />
+          <rect x="18" y="28" width="18" height="5" rx="2.5" fill={C.mint} />
+          <rect x="14" y="35" width="12" height="4" rx="2" fill={C.copper} />
+        </>
+      );
     case "shopfloor":
       return (
         <>

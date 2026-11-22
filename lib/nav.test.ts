@@ -8,6 +8,7 @@ describe("apps", () => {
   it("shows a role only the apps it can open", () => {
     expect(appsFor(ROLE_ACCESS.QC_INSPECTOR).map((a) => a.key)).toEqual(["mywork", "manufacturing", "shopfloor", "quality", "inventory", "reporting"]);
     expect(appsFor(ROLE_ACCESS.USER).map((a) => a.key)).toEqual(["mywork", "reporting"]);
+    expect(appsFor(ROLE_ACCESS.PLANNER).map((a) => a.key)).toEqual(["mywork", "manufacturing", "planning", "shopfloor", "quality", "inventory", "overtime", "reporting", "masterdata"]);
     expect(appsFor(ROLE_ACCESS.WORKSHOP_SUPERVISOR).map((a) => a.key)).toContain("kiosk");
     expect(appsFor(ROLE_ACCESS.QC_INSPECTOR).map((a) => a.key)).not.toContain("kiosk");
   });
@@ -21,7 +22,7 @@ describe("apps", () => {
     const all = appsFor(ALL);
     expect(locate(all, "/work-orders/12")).toMatchObject({ app: { key: "manufacturing" }, link: { label: "Work Orders" } });
     expect(locate(all, "/work-orders/new")?.link.label).toBe("New Work Order");
-    expect(locate(all, "/planning/weekly")?.app.key).toBe("manufacturing");
+    expect(locate(all, "/planning/weekly")?.app.key).toBe("planning");
     expect(locate(all, "/reports", "report=scrap")?.link.label).toBe("Scrap Analysis");
     expect(locate(all, "/reports", "")?.link.label).toBe("Work Order Status");
     expect(locate(all, "/master/molds")?.app.key).toBe("masterdata");

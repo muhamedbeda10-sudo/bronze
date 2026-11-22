@@ -293,10 +293,10 @@ export function AppShell({ user, apps, company, logo, children }: { user: ShellU
         )}
         {!home && here && <nav className="appbar-nav no-scrollbar hidden lg:flex" aria-label={`${here.app.label} menu`}><AppMenus app={here.app} current={current} /></nav>}
         <div className="appbar-tools">
-          <button type="button" className="bar-search hidden md:flex" onClick={() => setPalette(true)} aria-label="Search (Ctrl+K)">
+          <button type="button" className="bar-search hidden xl:flex" onClick={() => setPalette(true)} aria-label="Search (Ctrl+K)">
             <Search size={15} aria-hidden /> Search <kbd>Ctrl K</kbd>
           </button>
-          <button type="button" className="bar-btn md:hidden" onClick={() => setPalette(true)} aria-label="Search"><Search size={18} /></button>
+          <button type="button" className="bar-btn xl:hidden" onClick={() => setPalette(true)} aria-label="Search (Ctrl+K)"><Search size={18} /></button>
           <Bell_ />
           <button type="button" className="bar-btn" onClick={toggleTheme} title="Light / dark" aria-label="Toggle dark mode">
             <Moon size={18} className="dark:hidden" aria-hidden />
