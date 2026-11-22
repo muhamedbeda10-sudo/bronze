@@ -28,8 +28,8 @@ export default async function Home() {
   ]);
   const badges: Partial<Record<AppKey, { n: number; tone: "bad" | "brand"; title: string }>> = {
     mywork: { n: unread, tone: "brand", title: `${unread} unread notifications` },
-    manufacturing: { n: late, tone: "bad", title: `${late} late orders` },
-    planning: { n: toRelease, tone: "brand", title: `${toRelease} orders ready to release` },
+    // late orders first; with none late, what is ready to release
+    manufacturing: late ? { n: late, tone: "bad", title: `${late} late orders` } : { n: toRelease, tone: "brand", title: `${toRelease} orders ready to release` },
     quality: { n: inspections, tone: "brand", title: `${inspections} waiting for inspection` },
     inventory: { n: issues, tone: "brand", title: `${issues} issue requests to process` },
     overtime: { n: overtime, tone: "brand", title: `${overtime} overtime requests to decide` },

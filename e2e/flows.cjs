@@ -144,7 +144,7 @@ const toast = async (p, re) => { await p.locator('.toast').filter({ hasText: re 
   const ir = st.locator('tr', { hasText: '99,999' });
   ok(await ir.locator('button:has-text("Issue")').isDisabled(), 'issue disabled when stock is short');
 
-  console.log('a new sign-up sees only My Work and Reporting');
+  console.log('a new sign-up sees only My Work and Manufacturing (its reports)');
   const u = await b.newContext().then(c => c.newPage());
   await u.goto(base + '/signup');
   await u.fill('input[name=name]', 'E2E Viewer');
@@ -152,7 +152,7 @@ const toast = async (p, re) => { await p.locator('.toast').filter({ hasText: re 
   await u.fill('input[name=password]', 'longpassword1');
   await Promise.all([u.waitForURL(base + '/'), u.click('button[type=submit]')]);
   const apps = await u.locator('.app-tile-label').allInnerTexts();
-  ok(apps.join('|') === 'My Work|Reporting', 'only My Work and Reporting on the home screen: ' + apps.join('|'));
+  ok(apps.join('|') === 'My Work|Manufacturing', 'only My Work and Manufacturing on the home screen: ' + apps.join('|'));
   await u.goto(base + '/settings');
   ok(u.url().includes('/no-access'), 'settings blocked');
 

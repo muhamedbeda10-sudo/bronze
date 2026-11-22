@@ -42,29 +42,6 @@ function Glyph({ app }: { app: AppKey }) {
           <rect x="32" y="31" width="6" height="5" rx="1" fill={C.yellow} />
         </>
       );
-    case "planning":
-      return (
-        <>
-          <rect x="5" y="8" width="38" height="34" rx="5" fill={C.navy} />
-          <rect x="5" y="8" width="38" height="9" rx="5" fill={C.red} />
-          <rect x="5" y="13" width="38" height="4" fill={C.red} />
-          <rect x="12" y="4" width="4" height="9" rx="2" fill={C.grey} />
-          <rect x="32" y="4" width="4" height="9" rx="2" fill={C.grey} />
-          <rect x="10" y="21" width="16" height="5" rx="2.5" fill={C.yellow} />
-          <rect x="18" y="28" width="18" height="5" rx="2.5" fill={C.mint} />
-          <rect x="14" y="35" width="12" height="4" rx="2" fill={C.copper} />
-        </>
-      );
-    case "shopfloor":
-      return (
-        <>
-          <path d="M8 30h28c0 4-4 6-8 6v4h6v3H14v-3h6v-4c-6 0-12-2-12-6z" fill={C.bronze} />
-          <rect x="22" y="5" width="18" height="9" rx="2" transform="rotate(35 31 9.5)" fill={C.navy} />
-          <rect x="15" y="12" width="4" height="20" rx="2" transform="rotate(35 17 22)" fill={C.copper} />
-          <circle cx="38" cy="30" r="2" fill={C.yellow} />
-          <circle cx="42" cy="25" r="1.5" fill={C.yellow} />
-        </>
-      );
     case "kiosk":
       return (
         <>
@@ -105,24 +82,6 @@ function Glyph({ app }: { app: AppKey }) {
           <circle cx="24" cy="25" r="11" fill="#fff" />
           <path d="M24 17v8l5 4" fill="none" stroke={C.navy} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
           <rect x="20" y="3" width="8" height="4" rx="2" fill={C.pink} />
-        </>
-      );
-    case "reporting":
-      return (
-        <>
-          <rect x="6" y="26" width="9" height="16" rx="2" fill={C.teal} />
-          <rect x="19.5" y="16" width="9" height="26" rx="2" fill={C.blue} />
-          <rect x="33" y="8" width="9" height="34" rx="2" fill={C.bronze} />
-          <path d="M8 20 21 11l9 5 12-10" fill="none" stroke={C.yellow} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-        </>
-      );
-    case "masterdata":
-      return (
-        <>
-          <ellipse cx="24" cy="10" rx="15" ry="5.5" fill={C.sky} />
-          <path d="M9 10v9c0 3 6.7 5.5 15 5.5S39 22 39 19v-9c0 3-6.7 5.5-15 5.5S9 13 9 10z" fill={C.blue} />
-          <path d="M9 22v9c0 3 6.7 5.5 15 5.5S39 34 39 31v-9c0 3-6.7 5.5-15 5.5S9 25 9 22z" fill={C.navy} />
-          <path d="M9 34v5c0 3 6.7 5.5 15 5.5S39 42 39 39v-5c0 3-6.7 5.5-15 5.5S9 37 9 34z" fill={C.bronze} />
         </>
       );
     case "settings":

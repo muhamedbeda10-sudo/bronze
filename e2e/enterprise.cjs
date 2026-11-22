@@ -26,17 +26,15 @@ const toast = async (p, re) => p.locator('.toast').filter({ hasText: re }).first
   const pl = await login(b, 'planner@lotfybronze.com');
   ok(pl.url() === base + '/', 'lands on the apps');
   const tiles = (await pl.locator('.app-tile-label').allInnerTexts()).join('|');
-  ok(tiles === 'My Work|Manufacturing|Planning|Shop Floor|Quality|Inventory|Overtime|Reporting|Master Data', 'planner sees their apps: ' + tiles);
+  ok(tiles === 'My Work|Manufacturing|Quality|Inventory|Overtime', 'planner sees their apps: ' + tiles);
   await pl.click('.app-tile:has-text("Manufacturing")');
-  await pl.waitForURL(/\/work-orders$/);
+  await pl.waitForURL(/\/planning\/workshop$/);
   const appBar = (await pl.locator('.appbar-nav .menu-btn').allInnerTexts()).map(t => t.trim()).join('|');
-  ok(appBar === 'Work Orders|New Work Order|Work Order History', 'inside Manufacturing the bar has its menus only: ' + appBar);
-  await pl.click('a[aria-label="All apps"]');
-  await pl.click('.app-tile:has-text("Planning")');
-  await pl.waitForURL(/\/planning$/);
-  await pl.click('.appbar-nav a:has-text("Weekly Plan")');
+  ok(appBar === 'Overview|Operations|Planning|Products|Reporting|Configuration', "inside Manufacturing the bar is as Odoo's: " + appBar);
+  await pl.click('.appbar-nav button:has-text("Planning")');
+  await pl.click('.dropdown-item:has-text("Weekly Plan")');
   await pl.waitForURL(/\/planning\/weekly/);
-  ok(true, 'Planning app ▸ Weekly Plan from its bar');
+  ok(true, 'Manufacturing ▸ Planning ▸ Weekly Plan from its bar');
   // a dropdown of the bar must really show — on top, inside the window, not clipped by the bar
   await pl.goto(base + '/inventory/raw');
   await pl.click('.appbar-nav button:has-text("Stock")');
