@@ -5,6 +5,9 @@
 // The first admin comes from ADMIN_EMAIL / ADMIN_PASSWORD. The demo users
 // (planner, supervisor, QC, store) get the same password.
 
+// the .env beside the app (Windows has no shell to load it); variables already set win
+try { process.loadEnvFile(".env"); } catch {}
+
 import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/server/password";
 import { applyStageAction, createWorkOrder } from "@/lib/server/workOrders";

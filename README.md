@@ -10,6 +10,14 @@ English UI; Arabic names are welcome in the data.
 Next.js 16 (App Router, server actions) · TypeScript · Tailwind v4 · Prisma + PostgreSQL · exceljs · Recharts · Vitest.
 Same house rules as Production-Control: pure, tested logic in `lib/domain/`, database access in `lib/server/`, one look across every screen (`app/globals.css`).
 
+## Run it on a Windows computer (to try it)
+Needs **Node.js LTS** (nodejs.org) and **PostgreSQL** running on the computer (the portable one at `D:\SYS\pgsql` that Production-Control uses is started by `run.bat` by itself).
+1. Get the code: `git clone https://github.com/muhamedbeda10-sudo/bronze.git` (or Code → Download ZIP and unzip it).
+2. Double-click **`setup.bat`** once: it asks for the PostgreSQL user and password and the app's first admin, writes `.env`, installs, creates its own database `lotfy_bronze`, loads the demo data and builds.
+3. Double-click **`run.bat`**: the browser opens **http://localhost:3001** (Production-Control keeps 3000). **`stop.bat`** stops it; **`reset-demo.bat`** wipes the database and reloads the demo data.
+
+On a tablet on the same network, open `http://<this computer's IP>:3001` (Windows firewall: allow Node.js on private networks). The kiosk's camera needs HTTPS, so on plain http type the order number instead of scanning.
+
 ## Setup
 ```bash
 npm install                     # .npmrc sets legacy-peer-deps

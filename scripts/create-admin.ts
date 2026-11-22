@@ -2,6 +2,9 @@
 //   ADMIN_EMAIL=… ADMIN_PASSWORD=… npm run create-admin
 // The account gets every module in full. Re-running resets the password and re-activates it.
 
+// the .env beside the app (Windows has no shell to load it); variables already set win
+try { process.loadEnvFile(".env"); } catch {}
+
 import { prisma } from "@/lib/db";
 import { hashPassword, passwordProblem } from "@/lib/server/password";
 import { MODULES } from "@/lib/domain/access";
