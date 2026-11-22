@@ -4,7 +4,7 @@
 // Uses the Playwright installed on the machine (require('playwright')).
 const { chromium } = require('playwright');
 const base = process.env.BASE_URL || 'http://localhost:3000';
-const PASSWORD = process.env.ADMIN_PASSWORD || PASSWORD;
+const PASSWORD = process.env.ADMIN_PASSWORD || 'change-me-now';
 const S = require('node:path').join(__dirname, 'fixtures') + '/';
 const ok = (c, m) => { if (!c) throw new Error('FAIL: ' + m); console.log('  ✓', m); };
 async function login(b, email) {
@@ -24,7 +24,25 @@ const toast = async (p, re) => p.locator('.toast').filter({ hasText: re }).first
 
   console.log('planner: My Work, command palette');
   const pl = await login(b, 'planner@lotfybronze.com');
-  ok(pl.url() === base + '/', 'lands on My Work');
+  ok(pl.url() === base + '/', 'lands on the apps');
+  const tiles = (await pl.locator('.app-tile-label').allInnerTexts()).join('|');
+  ok(tiles === 'My Work|Manufacturing|Shop Floor|Quality|Inventory|Overtime|Reporting|Master Data', 'planner sees their apps: ' + tiles);
+  await pl.click('.app-tile:has-text("Manufacturing")');
+  await pl.waitForURL(/\/work-orders$/);
+  const appBar = (await pl.locator('.appbar-nav .menu-btn').allInnerTexts()).map(t => t.trim()).join('|');
+  ok(appBar === 'Work Orders|Planning', 'inside Manufacturing the bar has its menus only: ' + appBar);
+  await pl.click('.appbar-nav button:has-text("Planning")');
+  await pl.click('.dropdown-item:has-text("Weekly Plan")');
+  await pl.waitForURL(/\/planning\/weekly/);
+  ok(true, 'Planning ▸ Weekly Plan from the app menu');
+  await pl.click('a[aria-label="All apps"]');
+  await pl.waitForURL(base + '/');
+  await pl.fill('.launcher-search input', 'capac');
+  await pl.locator('.launcher-pages a', { hasText: 'Capacity' }).waitFor();
+  await pl.keyboard.press('Enter');
+  await pl.waitForURL(/\/planning\/capacity/);
+  ok(true, 'home search opens a page');
+  await pl.goto(base + '/my-work');
   await pl.locator('text=Ready to release').first().waitFor({ timeout: 30000 });
   ok(true, 'My Work shows Ready to release');
   await pl.keyboard.press('Control+k');

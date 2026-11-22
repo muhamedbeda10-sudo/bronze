@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { TabLinks } from "@/components/TabLinks";
 import { FilterBar } from "@/components/FilterBar";
 import { InspectionHistory } from "@/components/QualityViews";
 import { PrintHead } from "@/components/ui";
@@ -7,7 +6,6 @@ import { pageUser } from "@/lib/server/auth";
 import { periodOf } from "@/lib/server/period";
 import { prisma } from "@/lib/db";
 import { addDays, fmtDay } from "@/lib/domain/dates";
-import { QC_TABS } from "@/lib/qualityTabs";
 
 export const metadata: Metadata = { title: "Inspection History" };
 
@@ -24,7 +22,6 @@ export default async function InspHistory({ searchParams }: { searchParams: Prom
   return (
     <>
       <PrintHead title="Inspection History" sub={`${fmtDay(p.from)} – ${fmtDay(p.to)}`} />
-      <TabLinks items={QC_TABS} active="history" label="Quality" />
       <FilterBar
         defaults={p.defaults}
         filters={[

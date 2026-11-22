@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { TabLinks } from "@/components/TabLinks";
 import { FilterBar } from "@/components/FilterBar";
 import { OvertimeHistory } from "@/components/OvertimeViews";
 import { PrintHead } from "@/components/ui";
@@ -8,7 +7,6 @@ import { listOvertime } from "@/lib/server/overtime";
 import { loadLists } from "@/lib/server/refs";
 import { idParam, periodOf } from "@/lib/server/period";
 import { addDays, fmtDay } from "@/lib/domain/dates";
-import { OT_TABS } from "@/lib/overtimeTabs";
 
 export const metadata: Metadata = { title: "Overtime History" };
 
@@ -24,7 +22,6 @@ export default async function OvertimeHistoryPage({ searchParams }: { searchPara
   return (
     <>
       <PrintHead title="Overtime report" sub={`${fmtDay(p.from)} – ${fmtDay(p.to)}`} />
-      <TabLinks items={OT_TABS} active="history" label="Overtime" />
       <FilterBar
         defaults={p.defaults}
         filters={[

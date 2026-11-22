@@ -151,6 +151,42 @@ kbd { font-family: ui-monospace, monospace; font-size: 11px; padding: 1px 5px; b
 .dot-count { position: absolute; top: 4px; inset-inline-end: 3px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: #e5484d; color: #fff; font-size: 10px; font-weight: 700; display: grid; place-items: center; }
 .avatar { width: 30px; height: 30px; border-radius: 999px; display: grid; place-items: center; background: var(--brand-fill); color: #fff; font-weight: 600; font-size: 12px; }
 
+/* inside an app: the grid button, the app's name, its menus */
+.home-btn { margin-inline-end: 2px; }
+.appbar-app { display: inline-flex; align-items: center; gap: 10px; height: 100%; padding: 0 14px 0 6px; margin-inline-end: 4px; border-inline-end: 1px solid rgb(255 255 255 / 0.08); color: #fff; font-size: 16px; font-weight: 500; white-space: nowrap; }
+.appbar-app:hover { background: var(--bar-hover); }
+.app-chip { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 7px; background: #fff; flex: none; }
+.appbar-home .home-btn { display: none; }
+
+/* the home screen: the apps as tiles (Odoo's home menu) */
+.launcher { min-height: calc(100dvh - var(--bar-h)); background:
+  radial-gradient(80% 60% at 15% 0%, color-mix(in srgb, var(--brand) 16%, transparent), transparent 70%),
+  radial-gradient(70% 60% at 100% 100%, color-mix(in srgb, #3b7ddd 12%, transparent), transparent 70%),
+  linear-gradient(135deg, #eef0f5 0%, #e7e4ee 100%); }
+html.dark .launcher { background:
+  radial-gradient(80% 60% at 15% 0%, color-mix(in srgb, var(--brand) 22%, transparent), transparent 70%),
+  radial-gradient(70% 60% at 100% 100%, rgb(59 125 221 / 0.14), transparent 70%),
+  linear-gradient(135deg, #12152a 0%, #0d0f1c 100%); }
+.launcher-inner { max-width: 820px; margin: 0 auto; padding: 40px 20px 56px; display: flex; flex-direction: column; align-items: center; }
+.launcher-hello { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
+.launcher-search { display: flex; align-items: center; gap: 10px; width: min(460px, 100%); height: 42px; padding: 0 14px; border-radius: 999px; background: color-mix(in srgb, var(--surface) 85%, transparent); border: 1px solid var(--border); box-shadow: var(--shadow-sm); color: var(--muted); }
+.launcher-search:focus-within { border-color: var(--brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 22%, transparent); }
+.launcher-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font-size: 15px; color: var(--foreground); }
+.launcher-pages { width: min(460px, 100%); margin-top: 8px; padding: 6px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-md); }
+.launcher-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 30px 14px; width: 100%; margin-top: 40px; }
+@media (max-width: 860px) { .launcher-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .launcher-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px 8px; margin-top: 28px; } .launcher-inner { padding-top: 24px; } }
+.app-tile { display: flex; flex-direction: column; align-items: center; gap: 9px; border-radius: 12px; padding: 4px 0; text-align: center; }
+.app-tile:focus-visible { outline-offset: 4px; }
+.app-tile-icon { position: relative; display: grid; place-items: center; width: 80px; height: 80px; border-radius: 16px; background: #fff; box-shadow: 0 1px 2px rgb(16 20 40 / 0.08), 0 6px 16px rgb(16 20 40 / 0.10); transition: transform 0.14s ease, box-shadow 0.14s ease; }
+html.dark .app-tile-icon { background: #f5f3f0; box-shadow: 0 6px 18px rgb(0 0 0 / 0.45); }
+.app-tile:hover .app-tile-icon { transform: translateY(-3px); box-shadow: 0 2px 4px rgb(16 20 40 / 0.1), 0 12px 26px rgb(16 20 40 / 0.16); }
+.app-tile-label { font-size: 14px; color: var(--foreground); line-height: 1.2; }
+.app-badge { position: absolute; top: -7px; inset-inline-end: -7px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; display: grid; place-items: center; font-size: 11px; font-weight: 700; color: #fff; border: 2px solid var(--background); }
+.app-badge.brand { background: var(--brand-fill); }
+.app-badge.bad { background: #d93a3f; }
+@media (max-width: 520px) { .app-tile-icon { width: 68px; height: 68px; border-radius: 14px; } .app-tile-label { font-size: 13px; } }
+
 /* dropdown menus (app bar, actions) */
 .dropdown { position: absolute; z-index: 60; min-width: 220px; padding: 6px; background: var(--surface); color: var(--foreground); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-lg); animation: rise 0.12s ease; }
 .dropdown-head { padding: 6px 10px 4px; font-size: var(--fs-label); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }

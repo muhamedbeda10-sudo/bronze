@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { TabLinks } from "@/components/TabLinks";
 import { FilterBar } from "@/components/FilterBar";
 import { ActivityLog } from "@/components/WorkshopViews";
 import { PrintHead } from "@/components/ui";
@@ -10,7 +9,6 @@ import { idParam, periodOf } from "@/lib/server/period";
 import { addDays, fmtDay } from "@/lib/domain/dates";
 import { can } from "@/lib/domain/access";
 import { TASK_STATUS_LABEL, TASK_STATUSES } from "@/lib/domain/status";
-import { WS_TABS } from "@/lib/workshopTabs";
 
 export const metadata: Metadata = { title: "Workshop Logs" };
 
@@ -31,7 +29,6 @@ export default async function WorkshopLogs({ searchParams }: { searchParams: Pro
   return (
     <>
       <PrintHead title="Workshop Logs" sub={`${fmtDay(p.from)} – ${fmtDay(p.to)}`} />
-      <TabLinks items={can(user.access, "workshop", "E") ? WS_TABS : WS_TABS.filter((t) => t.key !== "record")} active="logs" label="Workshop" />
       <FilterBar
         defaults={p.defaults}
         filters={[

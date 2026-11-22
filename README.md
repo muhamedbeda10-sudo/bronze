@@ -44,7 +44,7 @@ CI (`.github/workflows/ci.yml`): types, lint, unit tests, build and seed against
 ## Modules
 | Module | Path | Feature doc |
 |---|---|---|
-| My Work (home), notifications, search | `/` | [my-work](docs/features/my-work.md) |
+| Apps (home), My Work, notifications, search | `/`, `/my-work` | [my-work](docs/features/my-work.md) |
 | Production Analytics | `/analytics` | [dashboard](docs/features/dashboard.md) |
 | Master Data | `/master/*` | [master-data](docs/features/master-data.md) |
 | Work Orders | `/work-orders` | [work-orders](docs/features/work-orders.md) |
@@ -69,8 +69,8 @@ Design and layout: [docs/design.md](docs/design.md) · Code layout: [docs/layout
 - **Capacity**: built (load vs machine hours per workshop).
 
 ## Enterprise features
-- Dynamics/Odoo-style shell: app bar with module menus, breadcrumb control panel, Ctrl+K search, notifications.
-- Role-based **My Work** home.
+- Odoo-style **home screen of apps** (tiles with badges); inside an app the bar shows that app's menus only; breadcrumb control panel, Ctrl+K search, notifications.
+- Role-based **My Work** app.
 - Work orders as **List / Kanban / Gantt** with filters, group by, saved favorites, bulk actions; drag on the board and the timeline.
 - **Record page** with a status bar, notebook and **chatter** (@mentions, attachments, history).
 - **Traveler** with QR and a **shop-floor kiosk** for tablets.

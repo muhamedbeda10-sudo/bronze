@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { TabLinks } from "@/components/TabLinks";
 import { RecordForm } from "@/components/WorkshopViews";
 import { Notice } from "@/components/ui";
 import { pageUser } from "@/lib/server/auth";
@@ -7,22 +6,19 @@ import { loadLists } from "@/lib/server/refs";
 import { listOrders } from "@/lib/server/woQueries";
 import { can } from "@/lib/domain/access";
 import { todayKey } from "@/lib/domain/dates";
-import { WS_TABS } from "@/lib/workshopTabs";
 
 export const metadata: Metadata = { title: "Workshop Record" };
 
 export default async function WorkshopRecord() {
   const user = await pageUser("workshop");
   const canRecord = can(user.access, "workshop", "E");
-  const tabs = canRecord ? WS_TABS : WS_TABS.filter((t) => t.key !== "record");
   if (!canRecord) {
-    return (<><TabLinks items={tabs} active="record" label="Workshop" /><Notice tone="info">Your account can view the workshop history and logs, not record activity.</Notice></>);
+    return (<><Notice tone="info">Your account can view the workshop history and logs, not record activity.</Notice></>);
   }
   const [lists, orders] = await Promise.all([loadLists(), listOrders({ status: { notIn: ["COMPLETED", "CANCELLED"] } })]);
   const own = can(user.access, "workshop", "F") ? null : user.workshopId;
   return (
     <>
-      <TabLinks items={tabs} active="record" label="Workshop" />
       <p className="muted" style={{ margin: "0 0 12px", fontSize: 13 }}>Log what each machine and operator did. Log setup and maintenance with <b>None</b> as the work order so machine utilization stays right; always enter scrap, even 0.</p>
       <RecordForm
         todayKey={todayKey()}

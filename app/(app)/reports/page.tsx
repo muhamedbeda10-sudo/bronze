@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { TabLinks } from "@/components/TabLinks";
 import { FilterBar } from "@/components/FilterBar";
 import { ReportTable } from "@/components/ReportTable";
 import { PrintHead } from "@/components/ui";
@@ -16,12 +15,10 @@ export default async function Reports({ searchParams }: { searchParams: Promise<
   const def = REPORTS.find((r) => r.key === sp.report) ?? REPORTS[0];
   const p = periodOf(sp, 30);
   const report = await buildReport(def.key as ReportKey, p.from, p.to, p.today);
-  const keep = (k: string) => `/reports?report=${k}${sp.from ? `&from=${sp.from}` : ""}${sp.to ? `&to=${sp.to}` : ""}`;
   const period = `${fmtDay(p.from)} – ${fmtDay(p.to)}`;
   return (
     <>
       <PrintHead title={def.label} sub={period} />
-      <TabLinks items={REPORTS.map((r) => ({ key: r.key, href: keep(r.key), label: r.label }))} active={def.key} label="Reports" />
       <FilterBar defaults={p.defaults} filters={[{ key: "from", label: "From", type: "date" }, { key: "to", label: "To", type: "date" }]} end={<p className="muted" style={{ margin: 0, fontSize: 13, alignSelf: "center" }}>{def.question}</p>} />
       <div className="kpi-grid" style={{ marginBottom: 16 }}>
         {report.summary.map((s) => (

@@ -4,7 +4,7 @@
 // Uses the Playwright installed on the machine (require('playwright')).
 const { chromium } = require('playwright');
 const base = process.env.BASE_URL || 'http://localhost:3000';
-const PASSWORD = process.env.ADMIN_PASSWORD || PASSWORD;
+const PASSWORD = process.env.ADMIN_PASSWORD || 'change-me-now';
 const PW = PASSWORD;
 const ok = (c, m) => { if (!c) throw new Error('FAIL: ' + m); console.log('  ✓', m); };
 async function login(b, email) {
@@ -87,7 +87,7 @@ const toast = async (p, re) => { await p.locator('.toast').filter({ hasText: re 
 
   console.log('QC inspector passes line 1 → completed → FG stock');
   const qc = await login(b, 'qc@lotfybronze.com');
-  ok(qc.url().endsWith('/'), 'QC lands on My Work');
+  ok(qc.url().endsWith('/'), 'QC lands on the apps');
   await qc.goto(base + '/quality');
   const qa = qc.locator('article', { hasText: `${no}-1` });
   await qa.locator('button:has-text("Pass Stage")').click();
@@ -151,8 +151,8 @@ const toast = async (p, re) => { await p.locator('.toast').filter({ hasText: re 
   await u.fill('input[name=email]', `viewer${no}@x.com`);
   await u.fill('input[name=password]', 'longpassword1');
   await Promise.all([u.waitForURL(base + '/'), u.click('button[type=submit]')]);
-  const menus = await u.locator('.appbar-nav .menu-btn').allInnerTexts();
-  ok(menus.map(t => t.trim()).join('|') === 'My Work|Reporting', 'only My Work and Reporting in the menu: ' + menus.join('|'));
+  const apps = await u.locator('.app-tile-label').allInnerTexts();
+  ok(apps.join('|') === 'My Work|Reporting', 'only My Work and Reporting on the home screen: ' + apps.join('|'));
   await u.goto(base + '/settings');
   ok(u.url().includes('/no-access'), 'settings blocked');
 

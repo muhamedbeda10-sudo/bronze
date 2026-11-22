@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { TabLinks } from "@/components/TabLinks";
 import { FilterBar } from "@/components/FilterBar";
 import { ActivityCards } from "@/components/WorkshopViews";
 import { pageUser } from "@/lib/server/auth";
@@ -7,13 +6,11 @@ import { listActivities } from "@/lib/server/activities";
 import { loadLists } from "@/lib/server/refs";
 import { idParam, periodOf } from "@/lib/server/period";
 import { addDays } from "@/lib/domain/dates";
-import { can } from "@/lib/domain/access";
-import { WS_TABS } from "@/lib/workshopTabs";
 
 export const metadata: Metadata = { title: "Workshop History" };
 
 export default async function WorkshopHistory({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
-  const user = await pageUser("workshop");
+  await pageUser("workshop");
   const sp = await searchParams;
   const p = periodOf(sp, 3);
   const workshopId = idParam(sp.workshop);
@@ -24,7 +21,6 @@ export default async function WorkshopHistory({ searchParams }: { searchParams: 
   ]);
   return (
     <>
-      <TabLinks items={can(user.access, "workshop", "E") ? WS_TABS : WS_TABS.filter((t) => t.key !== "record")} active="history" label="Workshop" />
       <FilterBar
         defaults={p.defaults}
         filters={[

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { TabLinks } from "@/components/TabLinks";
 import { FilterBar } from "@/components/FilterBar";
 import { IssueRequests, StockLedger, StockView, type StockOptions } from "@/components/StockViews";
 import { PrintHead } from "@/components/ui";
@@ -36,8 +35,6 @@ export default async function InventoryTab({ params, searchParams }: { params: P
     workshop: lists.workshops.map((w) => ({ value: String(w.id), label: w.name })),
     order: openOrders.map((o) => ({ value: String(o.id), label: `${o.woNo}-${o.lineNo}` })),
   };
-  const pendingCount = await prisma.issueRequest.count({ where: { status: "PENDING" } });
-  const tabs = TABS.map((t) => (t.key === "issues" ? { ...t, count: pendingCount } : t));
 
   if (tab === "issues") {
     const [rows, raw] = await Promise.all([
@@ -48,7 +45,6 @@ export default async function InventoryTab({ params, searchParams }: { params: P
     return (
       <>
         <PrintHead title="Issue Requests" />
-        <TabLinks items={tabs} active={tab} label="Inventory" />
         <IssueRequests
           options={options}
           canRequest={can(user.access, "inventory", "E")}
@@ -71,7 +67,6 @@ export default async function InventoryTab({ params, searchParams }: { params: P
     return (
       <>
         <PrintHead title="Stock Ledger" sub={`${fmtDay(p.from)} – ${fmtDay(p.to)}`} />
-        <TabLinks items={tabs} active={tab} label="Inventory" />
         <FilterBar defaults={p.defaults} filters={[{ key: "from", label: "From", type: "date" }, { key: "to", label: "To", type: "date" }]} />
         <StockLedger rows={moves.map((m) => ({
           id: m.id, at: m.at.toISOString(), kind: m.stockRow.kind, unit: m.stockRow.unit, delta: m.delta, reason: m.reason, ref: m.ref, userName: m.userName,
@@ -86,7 +81,6 @@ export default async function InventoryTab({ params, searchParams }: { params: P
   return (
     <>
       <PrintHead title={STOCK_KIND_LABEL[kind]} />
-      <TabLinks items={tabs} active={tab} label="Inventory" />
       {kind === "RAW" && <p className="muted" style={{ margin: "0 0 12px", fontSize: 13 }}>Before releasing an order, check that Available covers its Raw Material Req (+allowance).</p>}
       <StockView
         kind={kind}

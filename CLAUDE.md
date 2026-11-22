@@ -7,5 +7,5 @@
 - Scripts that import server code run with `tsx --conditions=react-server` (see `package.json`).
 - UI: the tokens and component classes in `app/globals.css` (inside `@layer components`); text never wears a series colour; check light and dark and a 390 px phone.
 - `npm install` needs `legacy-peer-deps` (set in `.npmrc`).
-- Navigation is one list, `lib/nav.ts` (menus, drawer, breadcrumb, palette). A page puts its buttons in the control panel with `CpanelActions`, a record its name in the breadcrumb with `Crumb` (`components/Cpanel.tsx`).
+- Navigation is one list of apps, `lib/nav.ts` (home grid, the app bar's menus, drawer, breadcrumb, palette); a new page is added to its app there, not as a tab on the page. A page puts its buttons in the control panel with `CpanelActions`, a record its name in the breadcrumb with `Crumb` (`components/Cpanel.tsx`).
 - After a change to a flow, run `npm run e2e` against the dev server on a freshly seeded database (`npm run seed -- --force`).

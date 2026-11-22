@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { TabLinks } from "@/components/TabLinks";
 import { FilterBar } from "@/components/FilterBar";
 import { WeeklyPlan } from "@/components/WeeklyPlan";
 import { PrintHead } from "@/components/ui";
@@ -8,7 +7,6 @@ import { listOrders } from "@/lib/server/woQueries";
 import { loadLists } from "@/lib/server/refs";
 import { idParam } from "@/lib/server/period";
 import { addDays, dayKey, fmtDay, parseDay, today, weekStart } from "@/lib/domain/dates";
-import { planningTabs } from "@/lib/planningTabs";
 
 export const metadata: Metadata = { title: "Weekly Production Plan" };
 
@@ -18,19 +16,17 @@ export default async function Weekly({ searchParams }: { searchParams: Promise<{
   const start = weekStart(parseDay(sp.week) ?? today());
   const end = addDays(start, 6);
   const workshopId = idParam(sp.workshop);
-  const [rows, lists, tabs] = await Promise.all([
+  const [rows, lists] = await Promise.all([
     listOrders({
       status: { notIn: ["COMPLETED", "CANCELLED"] },
       OR: [{ startDate: { lte: end } }, { startDate: null }, { stageIndex: { not: null } }],
       ...(workshopId ? { stages: { some: { workshopId } } } : {}),
     }),
     loadLists(),
-    planningTabs(),
   ]);
   return (
     <>
       <PrintHead title="Weekly Production Plan" sub={`Week of ${fmtDay(start)}`} />
-      <TabLinks items={tabs} active="weekly" label="Planning" />
       <FilterBar
         defaults={{ week: dayKey(weekStart(today())) }}
         filters={[

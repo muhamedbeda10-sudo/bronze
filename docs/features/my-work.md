@@ -1,6 +1,6 @@
-# My Work (home)
+# My Work
 
-Everyone opens on their own work, by what their account can act on (`app/(app)/page.tsx`):
+Everyone signs in to the apps (the home screen); **My Work** (`/my-work`, `app/(app)/my-work/page.tsx`) is the first app — their own work, by what their account can act on:
 tiles (open, late, due in 7 days, waiting inspection, overtime to decide, issue requests) that open the matching filtered list, then panels — at my workshop (a supervisor's stages), waiting for my inspection, ready to release (planned, start date reached), overtime to decide (never one's own), issue requests to process, late orders, due in the next 7 days, on hold / waiting, and the person's mentions and notifications.
 The production analytics moved to Reporting → Production Analytics (`/analytics`).
 

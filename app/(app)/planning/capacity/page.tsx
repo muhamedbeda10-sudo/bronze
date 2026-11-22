@@ -1,30 +1,26 @@
 import type { Metadata } from "next";
-import { TabLinks } from "@/components/TabLinks";
 import { Meter, PrintHead } from "@/components/ui";
 import { pageUser } from "@/lib/server/auth";
 import { getSettings } from "@/lib/server/settings";
 import { prisma } from "@/lib/db";
 import { workshopLoad } from "@/lib/domain/capacity";
 import { fmtNum } from "@/lib/format";
-import { planningTabs } from "@/lib/planningTabs";
 
 export const metadata: Metadata = { title: "Capacity" };
 
 /** The work still ahead of each workshop, against what its machines can do in a day. */
 export default async function Capacity() {
   await pageUser("planning");
-  const [orders, machines, workshops, settings, tabs] = await Promise.all([
+  const [orders, machines, workshops, settings] = await Promise.all([
     prisma.workOrder.findMany({ where: { status: { notIn: ["COMPLETED", "CANCELLED"] } }, select: { qty: true, stageIndex: true, stages: { select: { seq: true, workshopId: true, stdTimeMin: true, qcRequired: true } } } }),
     prisma.machine.findMany({ where: { status: "Active" }, select: { workshopId: true } }),
     prisma.workshop.findMany({ orderBy: { code: "asc" } }),
     getSettings(),
-    planningTabs(),
   ]);
   const rows = workshopLoad(orders, machines, workshops, settings.machineHoursPerDay);
   return (
     <>
       <PrintHead title="Capacity" />
-      <TabLinks items={tabs} active="capacity" label="Planning" />
       <p className="muted" style={{ margin: "0 0 12px", fontSize: 13 }}>
         Load = standard minutes per piece (Routing Master) × quantity, for every stage an open order still has to pass, from the stage it is at.
         Capacity = active machines × {settings.machineHoursPerDay} h a day (Settings). Days of work = load ÷ daily capacity.

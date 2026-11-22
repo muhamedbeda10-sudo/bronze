@@ -4,10 +4,11 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  BarChart3, Bell, Boxes, CalendarDays, ChartGantt, CheckCheck, ChevronDown, ClipboardCheck, ClipboardList, Clock, Database, Factory, FileBarChart, Gauge, Hammer, History,
+  BarChart3, Bell, Boxes, CalendarDays, ChartGantt, CheckCheck, ChevronDown, ClipboardCheck, ClipboardList, Clock, Database, Factory, FileBarChart, Gauge, Grid3x3, Hammer, History,
   Home, Kanban, LayoutList, ListOrdered, LogOut, Menu, Moon, Plus, Search, Settings, Sun, Tablet, Truck, Users, BookOpen, X, type LucideIcon,
 } from "lucide-react";
-import { locate, type IconName, type NavMenu } from "@/lib/nav";
+import { AppIcon } from "@/components/AppIcon";
+import { locate, type AppDef, type IconName, type NavSection } from "@/lib/nav";
 import { initials } from "@/lib/format";
 import { signOutAction } from "@/app/actions";
 
@@ -32,10 +33,11 @@ function useOutside(open: boolean, close: () => void) {
   return ref;
 }
 
-function MenuLinks({ menu, current, onPick }: { menu: NavMenu; current: string | null; onPick: () => void }) {
+/** The links of one or more sections, as a menu's rows. */
+function SectionLinks({ sections, current, onPick }: { sections: NavSection[]; current: string | null; onPick: () => void }) {
   return (
     <>
-      {menu.sections.map((s, i) => (
+      {sections.map((s, i) => (
         <div key={i}>
           {i > 0 && <div className="dropdown-sep" />}
           {s.label && <div className="dropdown-head">{s.label}</div>}
@@ -55,17 +57,35 @@ function MenuLinks({ menu, current, onPick }: { menu: NavMenu; current: string |
   );
 }
 
-function AppMenu({ menu, on, current }: { menu: NavMenu; on: boolean; current: string | null }) {
+/** A labelled section of the current app: a dropdown on the bar. */
+function SectionMenu({ section, current }: { section: NavSection; current: string | null }) {
   const [open, setOpen] = useState(false);
   const close = useCallback(() => setOpen(false), []);
   const ref = useOutside(open, close);
+  const on = section.links.some((l) => l.href === current);
   return (
     <div ref={ref} style={{ position: "relative", height: "100%" }}>
       <button type="button" className={`menu-btn ${on ? "on" : ""}`} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
-        {menu.label} <ChevronDown size={14} aria-hidden style={{ opacity: 0.7 }} />
+        {section.label} <ChevronDown size={14} aria-hidden style={{ opacity: 0.7 }} />
       </button>
-      {open && <div className="dropdown" role="menu" style={{ top: "calc(100% + 4px)", insetInlineStart: 0, minWidth: 260 }}><MenuLinks menu={menu} current={current} onPick={close} /></div>}
+      {open && <div className="dropdown" role="menu" style={{ top: "calc(100% + 4px)", insetInlineStart: 0, minWidth: 250 }}><SectionLinks sections={[{ links: section.links }]} current={current} onPick={close} /></div>}
     </div>
+  );
+}
+
+/** Inside an app, its menus only: a labelled section is a dropdown, the others' links sit on the bar. */
+function AppMenus({ app, current }: { app: AppDef; current: string | null }) {
+  if (app.key === "mywork") return null;
+  return (
+    <>
+      {app.sections.map((s, i) =>
+        s.label ? (
+          <SectionMenu key={i} section={s} current={current} />
+        ) : (
+          s.links.map((l) => <Link key={l.href} href={l.href} className={`menu-btn ${current === l.href ? "on" : ""}`}>{l.label}</Link>)
+        ),
+      )}
+    </>
   );
 }
 
@@ -138,12 +158,12 @@ function Bell_() {
 type Hit = { group: string; label: string; sub: string; href: string };
 
 /** Ctrl+K: records and pages from anywhere. */
-function Palette({ menus, onClose }: { menus: NavMenu[]; onClose: () => void }) {
+function Palette({ apps, onClose }: { apps: AppDef[]; onClose: () => void }) {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<Hit[]>([]);
   const [active, setActive] = useState(0);
-  const pages: Hit[] = menus.flatMap((m) => m.sections.flatMap((s) => s.links.map((l) => ({ group: "Pages", label: l.label, sub: m.label, href: l.href }))));
+  const pages: Hit[] = apps.flatMap((a) => a.sections.flatMap((s) => s.links.map((l) => ({ group: "Pages", label: l.label, sub: a.label, href: l.href }))));
   const needle = q.trim().toLowerCase();
   const pageHits = needle ? pages.filter((p) => p.label.toLowerCase().includes(needle) || p.sub.toLowerCase().includes(needle)).slice(0, 6) : pages.slice(0, 8);
   const shownHits = needle.length >= 2 ? hits : [];
@@ -211,32 +231,35 @@ function toggleTheme() {
   try { localStorage.setItem("theme", next ? "dark" : "light"); } catch {}
 }
 
-/** The breadcrumb: menu / place; a record page adds its own name (components/Cpanel.tsx). */
-function Crumbs({ menus, pathname, search, company }: { menus: NavMenu[]; pathname: string; search: string; company: string }) {
-  const here = locate(menus, pathname, search);
+/** The breadcrumb: app / place; a record page adds its own name (components/Cpanel.tsx). */
+function Crumbs({ apps, pathname, search, company }: { apps: AppDef[]; pathname: string; search: string; company: string }) {
+  const here = locate(apps, pathname, search);
+  const single = here && here.app.sections.flatMap((s) => s.links).length === 1;
   return (
     <nav className="crumbs" aria-label="Breadcrumb">
-      {here ? (
+      {here && !single ? (
         <>
-          <span className="muted hidden sm:inline">{here.menu.label}</span>
+          <Link href={here.app.home} className="hidden sm:inline" style={{ color: "var(--muted)" }}>{here.app.label}</Link>
           <span className="sep hidden sm:inline">/</span>
           <span id="crumb-trail" className="contents"><h1 data-default-title>{here.link.label}</h1></span>
         </>
       ) : (
-        <span id="crumb-trail" className="contents"><h1 data-default-title>{pathname === "/" ? "My Work" : company}</h1></span>
+        <span id="crumb-trail" className="contents"><h1 data-default-title>{here ? here.link.label : company}</h1></span>
       )}
     </nav>
   );
 }
 
 /** The query names the place on a few pages (the reports): read it here, so the rest of the shell does not wait for it. */
-function CrumbsWithSearch(p: { menus: NavMenu[]; pathname: string; company: string }) {
+function CrumbsWithSearch(p: { apps: AppDef[]; pathname: string; company: string }) {
   return <Crumbs {...p} search={useSearchParams().toString()} />;
 }
 
-export function AppShell({ user, menus, company, logo, children }: { user: ShellUser; menus: NavMenu[]; company: string; logo?: string; children: ReactNode }) {
+export function AppShell({ user, apps, company, logo, children }: { user: ShellUser; apps: AppDef[]; company: string; logo?: string; children: ReactNode }) {
   const pathname = usePathname();
-  const here = locate(menus, pathname, "");
+  const home = pathname === "/";
+  const here = locate(apps, pathname, "");
+  const current = here?.link.href ?? null;
   const [palette, setPalette] = useState(false);
   const [drawer, setDrawer] = useState(false);
   const [account, setAccount] = useState(false);
@@ -253,17 +276,22 @@ export function AppShell({ user, menus, company, logo, children }: { user: Shell
 
   return (
     <>
-      <header className="appbar no-print">
-        <button type="button" className="bar-btn lg:hidden" onClick={() => setDrawer(true)} aria-label="Open the menu"><Menu size={20} /></button>
-        <Link href="/" className="appbar-brand" aria-label={`${company} — my work`}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          {logo ? <img src={logo} alt="" className="brand-mark" style={{ objectFit: "contain", background: "#fff", padding: 2 }} /> : <span className="brand-mark" aria-hidden>LB</span>}
-          <span className="brand-word hidden sm:inline">LOTFY BRONZE</span>
-        </Link>
-        <nav className="appbar-nav no-scrollbar hidden lg:flex" aria-label="Main">
-          <Link href="/" className={`menu-btn ${pathname === "/" ? "on" : ""}`}>My Work</Link>
-          {menus.map((m) => <AppMenu key={m.key} menu={m} on={here?.menu.key === m.key} current={here?.link.href ?? null} />)}
-        </nav>
+      <header className={`appbar no-print ${home ? "appbar-home" : ""}`}>
+        {!home && <button type="button" className="bar-btn lg:hidden" onClick={() => setDrawer(true)} aria-label="Open the menu"><Menu size={20} /></button>}
+        <Link href="/" className="bar-btn home-btn" aria-label="All apps" title="All apps"><Grid3x3 size={19} aria-hidden /></Link>
+        {home || !here ? (
+          <Link href="/" className="appbar-brand" aria-label={company}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {logo ? <img src={logo} alt="" className="brand-mark" style={{ objectFit: "contain", background: "#fff", padding: 2 }} /> : <span className="brand-mark" aria-hidden>LB</span>}
+            <span className="brand-word">LOTFY BRONZE</span>
+          </Link>
+        ) : (
+          <Link href={here.app.home} className="appbar-app" title={here.app.desc}>
+            <span className="app-chip" aria-hidden><AppIcon app={here.app.key} size={22} /></span>
+            <span>{here.app.label}</span>
+          </Link>
+        )}
+        {!home && here && <nav className="appbar-nav no-scrollbar hidden lg:flex" aria-label={`${here.app.label} menu`}><AppMenus app={here.app} current={current} /></nav>}
         <div className="appbar-tools">
           <button type="button" className="bar-search hidden md:flex" onClick={() => setPalette(true)} aria-label="Search (Ctrl+K)">
             <Search size={15} aria-hidden /> Search <kbd>Ctrl K</kbd>
@@ -294,39 +322,37 @@ export function AppShell({ user, menus, company, logo, children }: { user: Shell
         </div>
       </header>
 
-      <div className="cpanel no-print">
-        <div className="cpanel-row">
-          <Suspense fallback={<Crumbs menus={menus} pathname={pathname} search="" company={company} />}>
-            <CrumbsWithSearch menus={menus} pathname={pathname} company={company} />
-          </Suspense>
-          <div id="cpanel-actions" className="flex flex-wrap items-center gap-2" style={{ marginInlineStart: "auto" }} />
+      {!home && (
+        <div className="cpanel no-print">
+          <div className="cpanel-row">
+            <Suspense fallback={<Crumbs apps={apps} pathname={pathname} search="" company={company} />}>
+              <CrumbsWithSearch apps={apps} pathname={pathname} company={company} />
+            </Suspense>
+            <div id="cpanel-actions" className="flex flex-wrap items-center gap-2" style={{ marginInlineStart: "auto" }} />
+          </div>
         </div>
-      </div>
+      )}
 
-      {drawer && (
+      {drawer && here && (
         <>
           <div className="drawer-back" onClick={() => setDrawer(false)} />
-          <div className="drawer" role="dialog" aria-modal="true" aria-label="Menu">
-            <div className="flex items-center justify-between" style={{ padding: "10px 12px", background: "var(--bar-bg)" }}>
-              <span className="flex items-center gap-2"><span className="brand-mark" aria-hidden>LB</span><span className="brand-word">LOTFY BRONZE</span></span>
+          <div className="drawer" role="dialog" aria-modal="true" aria-label={`${here.app.label} menu`}>
+            <div className="flex items-center justify-between" style={{ padding: "10px 12px", background: "var(--bar-bg)", color: "#fff" }}>
+              <span className="flex items-center gap-2" style={{ fontWeight: 600 }}><span className="app-chip" aria-hidden><AppIcon app={here.app.key} size={22} /></span>{here.app.label}</span>
               <button type="button" className="bar-btn" onClick={() => setDrawer(false)} aria-label="Close the menu"><X size={20} /></button>
             </div>
             <div style={{ padding: 8 }}>
-              <Link href="/" className={`dropdown-item ${pathname === "/" ? "on" : ""}`} onClick={() => setDrawer(false)}><Home size={16} className="di-icon" aria-hidden /> My Work</Link>
-              {menus.map((m) => (
-                <div key={m.key} style={{ marginTop: 6 }}>
-                  <div className="dropdown-head" style={{ color: "var(--foreground)" }}>{m.label}</div>
-                  <MenuLinks menu={m} current={here?.link.href ?? null} onPick={() => setDrawer(false)} />
-                </div>
-              ))}
+              <SectionLinks sections={here.app.sections} current={current} onPick={() => setDrawer(false)} />
+              <div className="dropdown-sep" />
+              <Link href="/" className="dropdown-item" onClick={() => setDrawer(false)}><Grid3x3 size={16} className="di-icon" aria-hidden /> All apps</Link>
             </div>
           </div>
         </>
       )}
 
-      {palette && <Palette menus={menus} onClose={() => setPalette(false)} />}
+      {palette && <Palette apps={apps} onClose={() => setPalette(false)} />}
 
-      <main className="page" id="main">{children}</main>
+      {home ? children : <main className="page" id="main">{children}</main>}
     </>
   );
 }

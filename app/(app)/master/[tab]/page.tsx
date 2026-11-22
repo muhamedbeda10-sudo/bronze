@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { TabLinks } from "@/components/TabLinks";
 import { MasterView } from "@/components/MasterView";
 import { Badge, PrintHead } from "@/components/ui";
 import { pageUser } from "@/lib/server/auth";
 import { listMaster } from "@/lib/server/master";
 import { loadRefMaps, refOptions } from "@/lib/server/refs";
 import { can } from "@/lib/domain/access";
-import { isMasterTab, MASTER_TABS, TAB_LABEL } from "@/lib/domain/master";
+import { isMasterTab, TAB_LABEL } from "@/lib/domain/master";
 import { STATUS_LABEL, STATUS_TONE, WO_STATUSES } from "@/lib/domain/status";
 
 export const metadata: Metadata = { title: "Master Data" };
@@ -16,12 +15,10 @@ export default async function MasterTabPage({ params }: { params: Promise<{ tab:
   const { tab } = await params;
   if (!isMasterTab(tab)) notFound();
   const user = await pageUser("masterData");
-  const items = MASTER_TABS.map((t, i) => ({ key: t, href: `/master/${t}`, label: `${i + 1}. ${TAB_LABEL[t]}` }));
 
   if (tab === "statuses") {
     return (
       <>
-        <TabLinks items={items} active={tab} label="Master data" />
         <p className="muted" style={{ margin: "0 0 12px", fontSize: 13 }}>The statuses a work order moves through. They are fixed: the planning, quality and dashboard logic depend on them.</p>
         <div className="card" style={{ maxWidth: 560 }}>
           <table className="dt">
@@ -46,7 +43,6 @@ export default async function MasterTabPage({ params }: { params: Promise<{ tab:
   return (
     <>
       <PrintHead title={TAB_LABEL[tab]} />
-      <TabLinks items={items} active={tab} label="Master data" />
       <MasterView
         tab={tab}
         rows={JSON.parse(JSON.stringify(rows))}

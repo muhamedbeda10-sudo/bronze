@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
-import { TabLinks } from "@/components/TabLinks";
 import { FilterBar } from "@/components/FilterBar";
 import { AuditView } from "@/components/SettingsViews";
 import { pageUser } from "@/lib/server/auth";
 import { periodOf } from "@/lib/server/period";
 import { prisma } from "@/lib/db";
 import { addDays } from "@/lib/domain/dates";
-import { SETTINGS_TABS } from "@/lib/settingsTabs";
 
 export const metadata: Metadata = { title: "Change History" };
 
@@ -20,7 +18,6 @@ export default async function History({ searchParams }: { searchParams: Promise<
   const rows = await prisma.auditLog.findMany({ where: { at: { gte: p.from, lt: addDays(p.to, 1) }, ...(entity ? { entity } : {}) }, orderBy: { at: "desc" }, take: 3000 });
   return (
     <>
-      <TabLinks items={SETTINGS_TABS} active="history" label="Settings" />
       <FilterBar
         defaults={p.defaults}
         filters={[
